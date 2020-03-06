@@ -1,5 +1,7 @@
 package main
 
+import "log"
+
 type ScraperSubscribeMessage struct {
 	name     string
 	session  *Session
@@ -40,9 +42,14 @@ func newScraper() *Scraper {
 	}
 }
 
-func (s *Scraper) run() {
+func (s *Scraper) run(done <-chan struct{}) {
+	log.Print("scraper started")
 	for {
 		select {
+		case <-done:
+			log.Print("scraper stopped")
+			// TODO: нужно ли очищать что-то ???
+			return
 		case session := <-s.register:
 			s.sessions[session] = true
 		case session := <-s.unregister:
