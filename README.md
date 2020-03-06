@@ -34,3 +34,13 @@ The database starts for a long time and the history tools may fall with an error
 nodeos -e -p eosio --config-dir `pwd`environment/ --delete-all-blocks --disable-replay-opts
 ```
 Option `--disable-replay-opts` is needed for `state-history-plugin`
+### Launch service
+```BASH
+export GO111MODULE=on
+cd src && go run .
+```
+#### Dockerize
+```BASH
+$ docker build -t app .
+$ docker run --publish 8888:8888 --name action-monitor --rm app
+```
