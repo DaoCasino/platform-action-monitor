@@ -104,7 +104,7 @@ func serveWs(scraper *Scraper, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	session := &Session{ID: cuid.New(), scraper: scraper, conn: conn, send: make(chan []byte, 512)}
-	// session.scraper.register <- session
+	session.scraper.register <- session
 
 	// Allow collection of memory referenced by the caller by doing all work in
 	// new goroutines.
