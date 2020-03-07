@@ -66,6 +66,7 @@ func (s *Scraper) run(done <-chan struct{}) {
 				}
 
 				delete(s.sessions, session)
+				log.Print("session sdfsdf")
 				close(session.send)
 			}
 		}
