@@ -72,8 +72,10 @@ func TestUnsubscribe(t *testing.T) {
 
 	session := &Session{ID: cuid.New(), scraper: scraper, conn: nil, send: make(chan []byte, 512)}
 
+	const topicName = "test"
+
 	session.scraper.register <- session
-	session.scraper.subscribe <- &ScraperSubscribeMessage{name: "test", session: session, response: nil}
+	session.scraper.subscribe <- &ScraperSubscribeMessage{name: topicName, session: session, response: nil}
 
 	message := &ScraperUnsubscribeMessage{
 		name:     "123",
@@ -88,10 +90,13 @@ func TestUnsubscribe(t *testing.T) {
 		t.Error("unsubscribe not exists topic result true; want false")
 	}
 
-	message.name = "test"
-	message.response = make(chan *ScraperResponseMessage)
-	session.scraper.unsubscribe <- message
-	res := <-message.response
+	msg := &ScraperUnsubscribeMessage{
+		name:     topicName,
+		session:  session,
+		response: make(chan *ScraperResponseMessage),
+	}
+	session.scraper.unsubscribe <- msg
+	res := <-msg.response
 
 	if res.result == false {
 		t.Error("unsubscribe result false; want true")
