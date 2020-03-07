@@ -1,6 +1,9 @@
 package main
 
-import "log"
+import (
+	"fmt"
+	"log"
+)
 
 type ScraperSubscribeMessage struct {
 	name     string
@@ -66,8 +69,45 @@ func (s *Scraper) run(done <-chan struct{}) {
 				}
 
 				delete(s.sessions, session)
-				log.Print("session sdfsdf")
 				close(session.send)
+			}
+
+		case message := <-s.subscribe:
+			log.Printf("subscribe message %+v", message)
+
+			if topicClients, ok := s.topics[message.name]; ok {
+				topicClients[message.session] = true
+			} else {
+				topicClients := make(map[*Session]bool)
+				topicClients[message.session] = true
+				s.topics[message.name] = topicClients
+			}
+
+			if message.response != nil {
+				response := new(ScraperResponseMessage)
+				response.result = true
+				message.response <- response
+				close(message.response)
+			}
+
+		case message := <-s.unsubscribe:
+			log.Printf("unsubscribe message %+v", message)
+
+			response := new(ScraperResponseMessage)
+			if topicClients, ok := s.topics[message.name]; ok {
+				delete(topicClients, message.session)
+				if len(topicClients) == 0 {
+					delete(s.topics, message.name)
+				}
+				response.result = true
+			} else {
+				response.result = false
+				response.err = fmt.Errorf("topic %s not exist", message.name)
+			}
+
+			if message.response != nil {
+				message.response <- response
+				close(message.response)
 			}
 		}
 	}
