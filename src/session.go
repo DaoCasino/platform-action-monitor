@@ -102,32 +102,45 @@ func (s *Session) writePump() {
 
 func (session *Session) process(message []byte) error {
 	request := new(RequestMessage)
+	response := newResponseMessage()
+
+	var error error
+
 	if err := json.Unmarshal(message, request); err != nil {
-		return err
-	}
-
-	response := newResponseMessage(request.ID)
-	method, err := methodExecutorFactory(request.Method)
-
-	if err != nil {
-		response.setError(err)
+		response.parseError()
+		error = err
 	} else {
-		err := json.Unmarshal(request.Params, &method)
+		response.ID = request.ID
+
+		method, err := methodExecutorFactory(*request.Method)
+
 		if err != nil {
-			response.setError(err)
+			response.methodNotFound()
 		} else {
-			result, err := method.execute(session)
-			if err != nil {
-				response.setError(err)
+			if len(request.Params) == 0 {
+				response.invalidParams()
 			} else {
-				err := response.setResult(result)
+				err := json.Unmarshal(request.Params, &method)
 				if err != nil {
-					return err
+					response.parseError()
+					error = err
+				} else {
+					result, err := method.execute(session)
+					if err != nil {
+						response.setError(err)
+					} else {
+						err := response.setResult(result)
+						if err != nil {
+							response.parseError()
+							error = err
+						}
+					}
 				}
 			}
 		}
 	}
 
+	log.Printf("process reponse %+v", response)
 	raw, err := json.Marshal(response)
 	if err != nil {
 		return err
@@ -135,8 +148,7 @@ func (session *Session) process(message []byte) error {
 
 	// log.Printf("%s", raw)
 	session.send <- raw
-
-	return nil
+	return error
 }
 
 func serveWs(scraper *Scraper, w http.ResponseWriter, r *http.Request) {

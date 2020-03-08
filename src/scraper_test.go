@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-func setupTestCase(t *testing.T) (*Scraper, func(t *testing.T)) {
+func setupScraperTestCase(t *testing.T) (*Scraper, func(t *testing.T)) {
 	scraper := newScraper()
 	done := make(chan struct{})
 	go scraper.run(done)
@@ -20,7 +20,7 @@ func setupTestCase(t *testing.T) (*Scraper, func(t *testing.T)) {
 }
 
 func TestRegisterUnregister(t *testing.T) {
-	scraper, teardownTestCase := setupTestCase(t)
+	scraper, teardownTestCase := setupScraperTestCase(t)
 	defer teardownTestCase(t)
 
 	session := &Session{ID: cuid.New(), scraper: scraper, conn: nil, send: make(chan []byte, 512)}
@@ -38,7 +38,7 @@ func TestRegisterUnregister(t *testing.T) {
 }
 
 func TestSubscribe(t *testing.T) {
-	scraper, teardownTestCase := setupTestCase(t)
+	scraper, teardownTestCase := setupScraperTestCase(t)
 	defer teardownTestCase(t)
 
 	session := &Session{ID: cuid.New(), scraper: scraper, conn: nil, send: make(chan []byte, 512)}
@@ -67,7 +67,7 @@ func TestSubscribe(t *testing.T) {
 }
 
 func TestUnsubscribe(t *testing.T) {
-	scraper, teardownTestCase := setupTestCase(t)
+	scraper, teardownTestCase := setupScraperTestCase(t)
 	defer teardownTestCase(t)
 
 	session := &Session{ID: cuid.New(), scraper: scraper, conn: nil, send: make(chan []byte, 512)}

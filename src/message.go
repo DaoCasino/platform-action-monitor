@@ -3,15 +3,20 @@ package main
 import "encoding/json"
 
 type RequestMessage struct {
-	ID       string          `json:"id"`
-	Method   string          `json:"method"`
-	Params   json.RawMessage `json:"params"`
+	ID     *string         `json:"id"`
+	Method *string         `json:"method"`
+	Params json.RawMessage `json:"params"`
+}
+
+type ResponseErrorMessage struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
 }
 
 type ResponseMessage struct {
-	ID       string          `json:"id"`
-	Result   json.RawMessage `json:"result"`
-	Error    string          `json:"error"`
+	ID     *string               `json:"id"`
+	Result json.RawMessage       `json:"result"`
+	Error  *ResponseErrorMessage `json:"error"`
 }
 
 func (response *ResponseMessage) setResult(data interface{}) error {
@@ -26,13 +31,21 @@ func (response *ResponseMessage) setResult(data interface{}) error {
 }
 
 func (response *ResponseMessage) setError(err error) {
-	response.Error = err.Error()
+	response.Error = &ResponseErrorMessage{Code: 0, Message: err.Error()}
 }
 
-func newResponseMessage(id string) *ResponseMessage {
-	res := &ResponseMessage {
-		ID: id,
-	}
+func (response *ResponseMessage) parseError() {
+	response.Error = &ResponseErrorMessage{Code: -32700, Message: "parse error"}
+}
 
-	return res
+func (response *ResponseMessage) methodNotFound() {
+	response.Error = &ResponseErrorMessage{Code: -32601, Message: "method not found"}
+}
+
+func (response *ResponseMessage) invalidParams() {
+	response.Error = &ResponseErrorMessage{Code: -32602, Message: "invalid params"}
+}
+
+func newResponseMessage() *ResponseMessage {
+	return &ResponseMessage{}
 }

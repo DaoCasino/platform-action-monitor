@@ -5,14 +5,14 @@ import (
 	"log"
 )
 
-type methodParams interface{}
+// type methodParams interface{}
 type methodResult interface{}
 type methodExecutor interface {
 	execute(session *Session) (methodResult, error)
 }
 
 const (
-	methodSubscribe string = "subscribe"
+	methodSubscribe   string = "subscribe"
 	methodUnsubscribe string = "unsubscribe"
 )
 
@@ -24,8 +24,8 @@ func (p *methodSubscribeParams) execute(session *Session) (methodResult, error) 
 	log.Printf("> subscribe topic %s, from %s\n", p.Topic, session.ID)
 
 	message := &ScraperSubscribeMessage{
-		name:   p.Topic,
-		session: session,
+		name:     p.Topic,
+		session:  session,
 		response: make(chan *ScraperResponseMessage),
 	}
 	session.scraper.subscribe <- message
@@ -42,8 +42,8 @@ func (p *methodUnsubscribeParams) execute(session *Session) (methodResult, error
 	log.Printf("> unsubscribe topic %s, from %s\n", p.Topic, session.ID)
 
 	message := &ScraperUnsubscribeMessage{
-		name:   p.Topic,
-		session: session,
+		name:     p.Topic,
+		session:  session,
 		response: make(chan *ScraperResponseMessage),
 	}
 
@@ -63,7 +63,7 @@ func methodExecutorFactory(method string) (methodExecutor, error) {
 		params = new(methodUnsubscribeParams)
 		break
 	default:
-		return nil, fmt.Errorf("method %s not supported", method)
+		return nil, fmt.Errorf("method not found")
 	}
 
 	return params, nil
