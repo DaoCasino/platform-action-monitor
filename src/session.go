@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"log"
 	"net/http"
 	"time"
@@ -57,9 +58,11 @@ func (s *Session) readPump() {
 			break
 		}
 
-		log.Println(message)
-
-		//s.process(message) // TODO: !!!
+		err = s.process(message)
+		if err != nil {
+			log.Printf("parse error: %v", err)
+			// break // TODO: тут ошибка парсинга сообщения от клиента - отключать его или нет?
+		}
 	}
 }
 
@@ -95,6 +98,45 @@ func (s *Session) writePump() {
 			}
 		}
 	}
+}
+
+func (session *Session) process(message []byte) error {
+	request := new(RequestMessage)
+	if err := json.Unmarshal(message, request); err != nil {
+		return err
+	}
+
+	response := newResponseMessage(request.ID)
+	method, err := methodExecutorFactory(request.Method)
+
+	if err != nil {
+		response.setError(err)
+	} else {
+		err := json.Unmarshal(request.Params, &method)
+		if err != nil {
+			response.setError(err)
+		} else {
+			result, err := method.execute(session)
+			if err != nil {
+				response.setError(err)
+			} else {
+				err := response.setResult(result)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	raw, err := json.Marshal(response)
+	if err != nil {
+		return err
+	}
+
+	// log.Printf("%s", raw)
+	session.send <- raw
+
+	return nil
 }
 
 func serveWs(scraper *Scraper, w http.ResponseWriter, r *http.Request) {
