@@ -46,8 +46,13 @@ func TestSessionProcess(t *testing.T) {
 		},
 		{
 			"subscribe test",
-			`{"id":"4","method":"subscribe","params":{"topic":"test"}}`,
+			`{"id":"4","method":"subscribe","params":{"topic":"test","offset":1}}`,
 			`{"id":"4","result":true,"error":null}`,
+		},
+		{
+			"subscribe test invalid params",
+			`{"id":"7","method":"subscribe","params":{"topic":""}}`,
+			`{"id":"7","result":null,"error":{"code":-32602,"message":"invalid params"}}`,
 		},
 		{
 			"unsubscribe test",
@@ -58,6 +63,11 @@ func TestSessionProcess(t *testing.T) {
 			"unsubscribe error",
 			`{"id":"6","method":"unsubscribe","params":{"topic":"sdfsdf"}}`,
 			`{"id":"6","result":null,"error":{"code":0,"message":"topic sdfsdf not exist"}}`,
+		},
+		{
+			"unsubscribe invalid params",
+			`{"id":"8","method":"unsubscribe","params":{"topic":""}}`,
+			`{"id":"8","result":null,"error":{"code":-32602,"message":"invalid params"}}`,
 		},
 	}
 

@@ -32,6 +32,7 @@ var upgrader = websocket.Upgrader{
 
 type Session struct {
 	ID      string
+	offset int
 	scraper *Scraper
 
 	// The websocket connection.
@@ -39,6 +40,10 @@ type Session struct {
 
 	// Buffered channel of outbound messages.
 	send chan []byte
+}
+
+func (s *Session) setOffset(offset int) { // TODO: нужно ли локать? будут ли гонки
+	s.offset = offset
 }
 
 func (s *Session) readPump() {
@@ -125,15 +130,19 @@ func (session *Session) process(message []byte) error {
 					response.parseError()
 					error = err
 				} else {
-					result, err := method.execute(session)
-					if err != nil {
-						response.setError(err)
-					} else {
-						err := response.setResult(result)
+					if method.isValid() {
+						result, err := method.execute(session)
 						if err != nil {
-							response.parseError()
-							error = err
+							response.setError(err)
+						} else {
+							err := response.setResult(result)
+							if err != nil {
+								response.parseError()
+								error = err
+							}
 						}
+					} else {
+						response.invalidParams()
 					}
 				}
 			}

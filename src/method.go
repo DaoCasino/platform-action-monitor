@@ -8,6 +8,7 @@ import (
 // type methodParams interface{}
 type methodResult interface{}
 type methodExecutor interface {
+	isValid() bool
 	execute(session *Session) (methodResult, error)
 }
 
@@ -18,16 +19,24 @@ const (
 
 type methodSubscribeParams struct {
 	Topic string `json:"topic"`
+	Offset int `json:"offset"`
+}
+
+func (p *methodSubscribeParams) isValid() bool { // TODO: offset же не может быть минусовым?
+	return len(p.Topic) > 0 && p.Offset >= 0
 }
 
 func (p *methodSubscribeParams) execute(session *Session) (methodResult, error) {
-	log.Printf("> subscribe topic %s, from %s\n", p.Topic, session.ID)
+	log.Printf("> subscribe topic %s, offset %d; from %s\n", p.Topic, p.Offset, session.ID)
 
 	message := &ScraperSubscribeMessage{
 		name:     p.Topic,
 		session:  session,
 		response: make(chan *ScraperResponseMessage),
 	}
+
+	session.setOffset(p.Offset) // TODO: не факт что тут?
+
 	session.scraper.subscribe <- message
 	response := <-message.response
 
@@ -36,6 +45,10 @@ func (p *methodSubscribeParams) execute(session *Session) (methodResult, error) 
 
 type methodUnsubscribeParams struct {
 	Topic string `json:"topic"`
+}
+
+func (p *methodUnsubscribeParams) isValid() bool {
+	return len(p.Topic) > 0
 }
 
 func (p *methodUnsubscribeParams) execute(session *Session) (methodResult, error) {
