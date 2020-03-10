@@ -44,3 +44,15 @@ cd src && go run .
 $ docker build -t app .
 $ docker run --publish 8888:8888 --name action-monitor --rm app
 ```
+## Integration testing
+### Environments
+`SERVER_ENDPOINT` default ws://localhost:8888/  
+`NUM_CLIENTS` default 3
+```BASH
+$ cd test && yarn && yarn test:dev
+```
+## Load testing
+Use Artillery https://artillery.io/
+```BASH
+$ artillery run loadtest.yml
+```
