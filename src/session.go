@@ -32,8 +32,9 @@ var upgrader = websocket.Upgrader{
 
 type Session struct {
 	ID      string
-	offset int
+	offset  int
 	scraper *Scraper
+	manager *SessionManager
 
 	// The websocket connection.
 	conn *websocket.Conn
@@ -42,13 +43,22 @@ type Session struct {
 	send chan []byte
 }
 
+func newSession(scraper *Scraper, manager *SessionManager, conn *websocket.Conn) *Session {
+	return &Session{
+		ID:      cuid.New(),
+		scraper: scraper,
+		manager: manager,
+		conn:    conn,
+		send:    make(chan []byte, 512)}
+}
+
 func (s *Session) setOffset(offset int) { // TODO: нужно ли локать? будут ли гонки
 	s.offset = offset
 }
 
 func (s *Session) readPump() {
 	defer func() {
-		s.scraper.unregister <- s
+		s.manager.unregister <- s
 		s.conn.Close()
 	}()
 	s.conn.SetReadLimit(maxMessageSize)
@@ -158,19 +168,4 @@ func (session *Session) process(message []byte) error {
 	// log.Printf("%s", raw)
 	session.send <- raw
 	return error
-}
-
-func serveWs(scraper *Scraper, w http.ResponseWriter, r *http.Request) {
-	conn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	session := &Session{ID: cuid.New(), scraper: scraper, conn: conn, send: make(chan []byte, 512)}
-	session.scraper.register <- session
-
-	// Allow collection of memory referenced by the caller by doing all work in
-	// new goroutines.
-	go session.writePump()
-	go session.readPump()
 }

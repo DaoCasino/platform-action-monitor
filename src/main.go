@@ -19,10 +19,11 @@ func main() {
 	flag.Parse()
 
 	scraper := newScraper()
+	manager := newSessionManager()
 
 	router := mux.NewRouter()
 	router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		serveWs(scraper, w, r)
+		serveWs(scraper, manager, w, r)
 	})
 
 	srv := &http.Server{
@@ -34,6 +35,7 @@ func main() {
 	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
 	idleConnectionClosed := make(chan struct{})
+	go manager.run(idleConnectionClosed)
 	go scraper.run(idleConnectionClosed)
 
 	go func() {
