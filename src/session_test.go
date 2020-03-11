@@ -1,25 +1,29 @@
 package main
 
 import (
-	"github.com/lucsky/cuid"
 	"testing"
 )
 
 func setupSessionTestCase(t *testing.T) (*Session, func(t *testing.T)) {
 	scraper := newScraper()
+	manager := newSessionManager()
 	done := make(chan struct{})
+	go manager.run(done)
+	t.Log("session manager running")
 	go scraper.run(done)
 	t.Log("scraper running")
 
-	session := &Session{ID: cuid.New(), scraper: scraper, conn: nil, send: make(chan []byte, 512)}
-	session.scraper.register <- session
+	session := newSession(scraper, manager, nil)
+	session.manager.register <- session
+
 	t.Log("session register")
 
 	return session, func(t *testing.T) {
-		session.scraper.unregister <- session
+		session.manager.unregister <- session
 		t.Log("session unregister")
 		close(done)
 		t.Log("scraper stopped")
+		t.Log("session manager stopped")
 	}
 }
 
