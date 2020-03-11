@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/gorilla/websocket"
-	"log"
+	"go.uber.org/zap"
 	"net/http"
 )
 
@@ -34,13 +34,19 @@ func (s *SessionManager) run(done <-chan struct{}) {
 			delete(s.sessions, session)
 			close(session.send)
 		}
+
+		if loggingEnabled {
+			sessionLog.Info("session manager stopped")
+		}
 	}()
 
-	log.Print("session manager started")
+	if loggingEnabled {
+		sessionLog.Info("session manager started")
+	}
+
 	for {
 		select {
 		case <-done:
-			log.Print("session manager stopped")
 			return
 		case session := <-s.register:
 			s.sessions[session] = true
@@ -58,7 +64,9 @@ func (s *SessionManager) run(done <-chan struct{}) {
 func serveWs(scraper *Scraper, manager *SessionManager, w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Println(err)
+		if loggingEnabled {
+			sessionLog.Error("upgrade", zap.Error(err))
+		}
 		return
 	}
 

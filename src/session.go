@@ -2,7 +2,7 @@ package main
 
 import (
 	"encoding/json"
-	"log"
+	"go.uber.org/zap"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -37,8 +37,14 @@ type Session struct {
 }
 
 func newSession(scraper *Scraper, manager *SessionManager, conn *websocket.Conn) *Session {
+	ID := cuid.New()
+
+	if loggingEnabled {
+		sessionLog.Debug("new session", zap.String("ID", ID))
+	}
+
 	return &Session{
-		ID:      cuid.New(),
+		ID:      ID,
 		scraper: scraper,
 		manager: manager,
 		conn:    conn,
@@ -53,6 +59,10 @@ func (s *Session) readPump() {
 	defer func() {
 		s.manager.unregister <- s
 		s.conn.Close()
+
+		if loggingEnabled {
+			sessionLog.Debug("readPump close", zap.String("session.id", s.ID))
+		}
 	}()
 	s.conn.SetReadLimit(maxMessageSize)
 	s.conn.SetReadDeadline(time.Now().Add(pongWait))
@@ -61,16 +71,14 @@ func (s *Session) readPump() {
 		_, message, err := s.conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Printf("error: %v", err)
+				if loggingEnabled {
+					sessionLog.Error("readPump", zap.Error(err))
+				}
 			}
 			break
 		}
 
 		s.process(message)
-		//if err != nil {
-		//	log.Printf("parse error: %v", err)
-		//	// break // TODO: тут ошибка парсинга сообщения от клиента - отключать его или нет?
-		//}
 	}
 }
 
@@ -79,6 +87,10 @@ func (s *Session) writePump() {
 	defer func() {
 		ticker.Stop()
 		s.conn.Close()
+
+		if loggingEnabled {
+			sessionLog.Debug("writePump close", zap.String("session.id", s.ID))
+		}
 	}()
 	for {
 		select {
@@ -151,13 +163,26 @@ func (session *Session) process(message []byte) (e error) {
 		}
 	}
 
-	log.Printf("process reponse %+v", response)
+	if loggingEnabled {
+		if response.Error != nil {
+			sessionLog.Debug("response error",
+				zap.Stringp("ID", response.ID),
+				zap.Int("code", response.Error.Code),
+				zap.String("message", response.Error.Message),
+			)
+		} else {
+			sessionLog.Debug("response",
+				zap.Stringp("ID", response.ID),
+				zap.String("result", string(response.Result)),
+			)
+		}
+	}
+
 	raw, err := json.Marshal(response)
 	if err != nil {
 		return err
 	}
 
-	// log.Printf("%s", raw)
 	session.send <- raw
 	return e
 }

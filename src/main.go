@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"flag"
-	"log"
+	"go.uber.org/zap"
 	"net/http"
 	"os"
 	"os/signal"
@@ -40,15 +40,24 @@ func main() {
 
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("listen: %s\n", err)
+			if loggingEnabled {
+				mainLog.Fatal("listen", zap.Error(err))
+			}
+			os.Exit(1)
 		}
 	}()
-	log.Printf("server is listening on %s\n", *addr)
+
+	if loggingEnabled {
+		mainLog.Info("server is listening", zap.Stringp("addr", addr))
+	}
 
 	<-done
 
 	close(idleConnectionClosed)
-	log.Print("server stopped")
+
+	if loggingEnabled {
+		mainLog.Info("server stopped")
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer func() {
@@ -57,6 +66,9 @@ func main() {
 	}()
 
 	if err := srv.Shutdown(ctx); err != nil {
-		log.Fatalf("server shutdown failed:%+v", err)
+		if loggingEnabled {
+			mainLog.Fatal("server shutdown failed", zap.Error(err))
+		}
+		os.Exit(1)
 	}
 }

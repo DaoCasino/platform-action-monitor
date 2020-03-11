@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"log"
+	"go.uber.org/zap"
 )
 
 // type methodParams interface{}
@@ -18,8 +18,8 @@ const (
 )
 
 type methodSubscribeParams struct {
-	Topic string `json:"topic"`
-	Offset int `json:"offset"`
+	Topic  string `json:"topic"`
+	Offset int    `json:"offset"`
 }
 
 func (p *methodSubscribeParams) isValid() bool { // TODO: offset же не может быть минусовым?
@@ -27,7 +27,12 @@ func (p *methodSubscribeParams) isValid() bool { // TODO: offset же не мо�
 }
 
 func (p *methodSubscribeParams) execute(session *Session) (methodResult, error) {
-	log.Printf("> subscribe topic %s, offset %d; from %s\n", p.Topic, p.Offset, session.ID)
+	if loggingEnabled {
+		methodLog.Debug("> subscribe",
+			zap.String("topic", p.Topic),
+			zap.Int("offset", p.Offset),
+			zap.String("session.id", session.ID))
+	}
 
 	message := &ScraperSubscribeMessage{
 		name:     p.Topic,
@@ -52,7 +57,9 @@ func (p *methodUnsubscribeParams) isValid() bool {
 }
 
 func (p *methodUnsubscribeParams) execute(session *Session) (methodResult, error) {
-	log.Printf("> unsubscribe topic %s, from %s\n", p.Topic, session.ID)
+	if loggingEnabled {
+		methodLog.Debug("> unsubscribe", zap.String("topic", p.Topic), zap.String("session.id", session.ID))
+	}
 
 	message := &ScraperUnsubscribeMessage{
 		name:     p.Topic,

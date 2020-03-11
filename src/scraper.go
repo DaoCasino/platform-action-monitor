@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"log"
+	"go.uber.org/zap"
 )
 
 type ScraperSubscribeMessage struct {
@@ -39,11 +39,19 @@ func newScraper() *Scraper {
 }
 
 func (s *Scraper) run(done <-chan struct{}) {
-	log.Print("scraper started")
+	defer func() {
+		if loggingEnabled {
+			scraperLog.Info("scraper stopped")
+		}
+	}()
+
+	if loggingEnabled {
+		scraperLog.Info("scraper started")
+	}
+
 	for {
 		select {
 		case <-done:
-			log.Print("scraper stopped")
 			return
 
 		case session := <-s.unsubscribeSession:
@@ -58,7 +66,12 @@ func (s *Scraper) run(done <-chan struct{}) {
 			}
 
 		case message := <-s.subscribe:
-			log.Printf("subscribe message %+v", message)
+			if loggingEnabled {
+				scraperLog.Debug("subscribe",
+					zap.String("name", message.name),
+					zap.String("session.id", message.session.ID),
+				)
+			}
 
 			if topicClients, ok := s.topics[message.name]; ok {
 				topicClients[message.session] = true
@@ -76,7 +89,12 @@ func (s *Scraper) run(done <-chan struct{}) {
 			}
 
 		case message := <-s.unsubscribe:
-			log.Printf("unsubscribe message %+v", message)
+			if loggingEnabled {
+				scraperLog.Debug("unsubscribe",
+					zap.String("name", message.name),
+					zap.String("session.id", message.session.ID),
+				)
+			}
 
 			response := new(ScraperResponseMessage)
 			if topicClients, ok := s.topics[message.name]; ok {
