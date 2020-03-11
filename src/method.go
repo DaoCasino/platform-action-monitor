@@ -22,7 +22,7 @@ type methodSubscribeParams struct {
 	Offset int    `json:"offset"`
 }
 
-func (p *methodSubscribeParams) isValid() bool { // TODO: offset же не может быть минусовым?
+func (p *methodSubscribeParams) isValid() bool {
 	return len(p.Topic) > 0 && p.Offset >= 0
 }
 
@@ -40,7 +40,7 @@ func (p *methodSubscribeParams) execute(session *Session) (methodResult, error) 
 		response: make(chan *ScraperResponseMessage),
 	}
 
-	session.setOffset(p.Offset) // TODO: не факт что тут?
+	session.setOffset(p.Offset)
 
 	session.scraper.subscribe <- message
 	response := <-message.response

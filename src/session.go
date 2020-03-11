@@ -51,7 +51,7 @@ func newSession(scraper *Scraper, manager *SessionManager, conn *websocket.Conn)
 		send:    make(chan []byte, 512)}
 }
 
-func (s *Session) setOffset(offset int) { // TODO: нужно ли локать? будут ли гонки
+func (s *Session) setOffset(offset int) {
 	s.offset = offset
 }
 
@@ -120,7 +120,7 @@ func (s *Session) writePump() {
 	}
 }
 
-// TODO: хз как зарефакторить красиво
+// FIX: I do not know how to do better, there are 2 types of errors
 func (session *Session) process(message []byte) (e error) {
 	request := new(RequestMessage)
 	response := newResponseMessage()

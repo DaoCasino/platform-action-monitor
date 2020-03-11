@@ -16,6 +16,12 @@ import (
 var addr = flag.String("addr", ":8888", "http service address")
 
 func main() {
+
+	// TODO: delete!
+	logger, _ := zap.NewDevelopment()
+	EnableDebugLogging(logger)
+	// -----------
+
 	flag.Parse()
 
 	scraper := newScraper()
