@@ -66,11 +66,11 @@ func (s *Session) readPump() {
 			break
 		}
 
-		err = s.process(message)
-		if err != nil {
-			log.Printf("parse error: %v", err)
-			// break // TODO: тут ошибка парсинга сообщения от клиента - отключать его или нет?
-		}
+		s.process(message)
+		//if err != nil {
+		//	log.Printf("parse error: %v", err)
+		//	// break // TODO: тут ошибка парсинга сообщения от клиента - отключать его или нет?
+		//}
 	}
 }
 
@@ -85,7 +85,7 @@ func (s *Session) writePump() {
 		case message, ok := <-s.send:
 			s.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if !ok {
-				// The hub closed the channel.
+				// The session closed the channel.
 				s.conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}
@@ -108,15 +108,14 @@ func (s *Session) writePump() {
 	}
 }
 
-func (session *Session) process(message []byte) error {
+// TODO: хз как зарефакторить красиво
+func (session *Session) process(message []byte) (e error) {
 	request := new(RequestMessage)
 	response := newResponseMessage()
 
-	var error error
-
 	if err := json.Unmarshal(message, request); err != nil {
 		response.parseError()
-		error = err
+		e = err
 	} else {
 		response.ID = request.ID
 
@@ -131,7 +130,7 @@ func (session *Session) process(message []byte) error {
 				err := json.Unmarshal(request.Params, &method)
 				if err != nil {
 					response.parseError()
-					error = err
+					e = err
 				} else {
 					if method.isValid() {
 						result, err := method.execute(session)
@@ -141,7 +140,7 @@ func (session *Session) process(message []byte) error {
 							err := response.setResult(result)
 							if err != nil {
 								response.parseError()
-								error = err
+								e = err
 							}
 						}
 					} else {
@@ -160,5 +159,5 @@ func (session *Session) process(message []byte) error {
 
 	// log.Printf("%s", raw)
 	session.send <- raw
-	return error
+	return e
 }

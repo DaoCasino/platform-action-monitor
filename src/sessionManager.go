@@ -27,12 +27,20 @@ func newSessionManager() *SessionManager {
 }
 
 func (s *SessionManager) run(done <-chan struct{}) {
+	defer func() {
+		for session := range s.sessions {
+			session.scraper.unsubscribeSession <- session
+
+			delete(s.sessions, session)
+			close(session.send)
+		}
+	}()
+
 	log.Print("session manager started")
 	for {
 		select {
 		case <-done:
 			log.Print("session manager stopped")
-			// TODO: нужно ли очищать что-то ???
 			return
 		case session := <-s.register:
 			s.sessions[session] = true

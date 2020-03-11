@@ -46,8 +46,9 @@ func main() {
 	log.Printf("server is listening on %s\n", *addr)
 
 	<-done
-	log.Print("server stopped")
+
 	close(idleConnectionClosed)
+	log.Print("server stopped")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer func() {

@@ -44,7 +44,6 @@ func (s *Scraper) run(done <-chan struct{}) {
 		select {
 		case <-done:
 			log.Print("scraper stopped")
-			// TODO: нужно ли очищать что-то ???
 			return
 
 		case session := <-s.unsubscribeSession:
