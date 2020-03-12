@@ -9,4 +9,5 @@ require (
 	github.com/lucsky/cuid v1.0.2
 	go.uber.org/zap v1.14.0
 	golang.org/x/net v0.0.0-20200301022130-244492dfa37a
+	gopkg.in/yaml.v2 v2.2.2
 )

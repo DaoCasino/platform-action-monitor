@@ -9,23 +9,11 @@ import (
 	"github.com/lucsky/cuid"
 )
 
-const (
-	// Time allowed to write a message to the peer.
-	writeWait = 10 * time.Second
-
-	// Time allowed to read the next pong message from the peer.
-	pongWait = 60 * time.Second
-
-	// Send pings to peer with this period. Must be less than pongWait.
-	pingPeriod = (pongWait * 9) / 10
-
-	// Maximum message size allowed from peer.
-	maxMessageSize = 1024 * 4
-)
-
 type Session struct {
-	ID      string
-	offset  int
+	ID     string
+	offset int
+
+	config  *SessionConfig
 	scraper *Scraper
 	manager *SessionManager
 
@@ -36,7 +24,7 @@ type Session struct {
 	send chan []byte
 }
 
-func newSession(scraper *Scraper, manager *SessionManager, conn *websocket.Conn) *Session {
+func newSession(config *SessionConfig, scraper *Scraper, manager *SessionManager, conn *websocket.Conn) *Session {
 	ID := cuid.New()
 
 	if loggingEnabled {
@@ -45,6 +33,7 @@ func newSession(scraper *Scraper, manager *SessionManager, conn *websocket.Conn)
 
 	return &Session{
 		ID:      ID,
+		config:  config,
 		scraper: scraper,
 		manager: manager,
 		conn:    conn,
@@ -64,9 +53,10 @@ func (s *Session) readPump() {
 			sessionLog.Debug("readPump close", zap.String("session.id", s.ID))
 		}
 	}()
-	s.conn.SetReadLimit(maxMessageSize)
-	s.conn.SetReadDeadline(time.Now().Add(pongWait))
-	s.conn.SetPongHandler(func(string) error { s.conn.SetReadDeadline(time.Now().Add(pongWait)); return nil })
+
+	s.conn.SetReadLimit(s.config.maxMessageSize)
+	s.conn.SetReadDeadline(time.Now().Add(s.config.pongWait))
+	s.conn.SetPongHandler(func(string) error { s.conn.SetReadDeadline(time.Now().Add(s.config.pongWait)); return nil })
 	for {
 		_, message, err := s.conn.ReadMessage()
 		if err != nil {
@@ -83,7 +73,7 @@ func (s *Session) readPump() {
 }
 
 func (s *Session) writePump() {
-	ticker := time.NewTicker(pingPeriod)
+	ticker := time.NewTicker(s.config.pingPeriod)
 	defer func() {
 		ticker.Stop()
 		s.conn.Close()
@@ -95,7 +85,7 @@ func (s *Session) writePump() {
 	for {
 		select {
 		case message, ok := <-s.send:
-			s.conn.SetWriteDeadline(time.Now().Add(writeWait))
+			s.conn.SetWriteDeadline(time.Now().Add(s.config.writeWait))
 			if !ok {
 				// The session closed the channel.
 				s.conn.WriteMessage(websocket.CloseMessage, []byte{})
@@ -112,7 +102,7 @@ func (s *Session) writePump() {
 				return
 			}
 		case <-ticker.C:
-			s.conn.SetWriteDeadline(time.Now().Add(writeWait))
+			s.conn.SetWriteDeadline(time.Now().Add(s.config.writeWait))
 			if err := s.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				return
 			}

@@ -6,11 +6,7 @@ import (
 	"net/http"
 )
 
-var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-	CheckOrigin:     func(r *http.Request) bool { return true },
-}
+var upgrader websocket.Upgrader
 
 type SessionManager struct {
 	sessions   map[*Session]bool
@@ -18,7 +14,14 @@ type SessionManager struct {
 	unregister chan *Session
 }
 
-func newSessionManager() *SessionManager {
+func newSessionManager(config *UpgraderConfig) *SessionManager {
+
+	upgrader = websocket.Upgrader{
+		ReadBufferSize:  config.readBufferSize,
+		WriteBufferSize: config.writeBufferSize,
+		CheckOrigin:     func(r *http.Request) bool { return true },
+	}
+
 	return &SessionManager{
 		sessions:   make(map[*Session]bool),
 		register:   make(chan *Session),
@@ -61,7 +64,7 @@ func (s *SessionManager) run(done <-chan struct{}) {
 	}
 }
 
-func serveWs(scraper *Scraper, manager *SessionManager, w http.ResponseWriter, r *http.Request) {
+func serveWs(config *Config, scraper *Scraper, manager *SessionManager, w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		if loggingEnabled {
@@ -70,7 +73,7 @@ func serveWs(scraper *Scraper, manager *SessionManager, w http.ResponseWriter, r
 		return
 	}
 
-	session := newSession(scraper, manager, conn)
+	session := newSession(&config.session, scraper, manager, conn)
 	manager.register <- session
 
 	// Allow collection of memory referenced by the caller by doing all work in

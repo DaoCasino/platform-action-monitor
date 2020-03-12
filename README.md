@@ -44,15 +44,27 @@ cd src && go run .
 $ docker build -t app .
 $ docker run --publish 8888:8888 --name action-monitor --rm app
 ```
-## Integration testing
-### Environments
-`SERVER_ENDPOINT` default ws://localhost:8888/  
-`NUM_CLIENTS` default 3
-```BASH
-$ cd test && yarn && yarn test:dev
-```
 ## Load testing
 Use Artillery https://artillery.io/
+```
+config:
+    target: "ws://localhost:8888/"
+    phases:
+        - duration: 60
+          arrivalRate: 5
+        # - duration: 120
+        #   arrivalRate: 5
+        #   rampTo: 50
+        # - duration: 600
+        #   arrivalRate: 50
+scenarios:
+    - engine: "ws"
+      name: "Subscribe & Unsubscribe topic"
+      flow:
+        - send: '{"method":"subscribe","params":{"topic":"test","offset":0},"id":"0"}'
+        - think: 0.5
+        - send: '{"method":"unbscribe","params":{"topic":"test"},"id":"1"}'
+```
 ```BASH
 $ artillery run loadtest.yml
 ```

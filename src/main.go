@@ -13,9 +13,12 @@ import (
 	"github.com/gorilla/mux"
 )
 
-var addr = flag.String("addr", ":8888", "http service address")
+// context DeadLine timeout
+const withTimeout = 5 * time.Second
 
 func main() {
+
+	config := newConfig()
 
 	// TODO: delete!
 	logger, _ := zap.NewDevelopment()
@@ -25,15 +28,15 @@ func main() {
 	flag.Parse()
 
 	scraper := newScraper()
-	manager := newSessionManager()
+	manager := newSessionManager(&config.upgrader)
 
 	router := mux.NewRouter()
 	router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		serveWs(scraper, manager, w, r)
+		serveWs(config, scraper, manager, w, r)
 	})
 
 	srv := &http.Server{
-		Addr:    *addr,
+		Addr:    config.serverAddress,
 		Handler: router,
 	}
 
@@ -54,7 +57,7 @@ func main() {
 	}()
 
 	if loggingEnabled {
-		mainLog.Info("server is listening", zap.Stringp("addr", addr))
+		mainLog.Info("server is listening", zap.String("addr", config.serverAddress))
 	}
 
 	<-done
@@ -65,7 +68,7 @@ func main() {
 		mainLog.Info("server stopped")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), withTimeout)
 	defer func() {
 		//TODO: Close database, redis, truncate message queues, etc.
 		cancel()
