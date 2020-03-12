@@ -27,12 +27,10 @@ func (p *methodSubscribeParams) isValid() bool {
 }
 
 func (p *methodSubscribeParams) execute(session *Session) (methodResult, error) {
-	if loggingEnabled {
-		methodLog.Debug("> subscribe",
-			zap.String("topic", p.Topic),
-			zap.Int("offset", p.Offset),
-			zap.String("session.id", session.ID))
-	}
+	methodLog.Debug("> subscribe",
+		zap.String("topic", p.Topic),
+		zap.Int("offset", p.Offset),
+		zap.String("session.id", session.ID))
 
 	message := &ScraperSubscribeMessage{
 		name:     p.Topic,
@@ -57,9 +55,7 @@ func (p *methodUnsubscribeParams) isValid() bool {
 }
 
 func (p *methodUnsubscribeParams) execute(session *Session) (methodResult, error) {
-	if loggingEnabled {
-		methodLog.Debug("> unsubscribe", zap.String("topic", p.Topic), zap.String("session.id", session.ID))
-	}
+	methodLog.Debug("> unsubscribe", zap.String("topic", p.Topic), zap.String("session.id", session.ID))
 
 	message := &ScraperUnsubscribeMessage{
 		name:     p.Topic,

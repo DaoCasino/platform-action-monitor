@@ -49,35 +49,29 @@ func main() {
 
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			if loggingEnabled {
-				mainLog.Fatal("listen", zap.Error(err))
-			}
-			os.Exit(1)
+
+			mainLog.Fatal("listen", zap.Error(err))
+
 		}
 	}()
 
-	if loggingEnabled {
-		mainLog.Info("server is listening", zap.String("addr", config.serverAddress))
-	}
+	mainLog.Info("server is listening", zap.String("addr", config.serverAddress))
 
 	<-done
 
 	close(idleConnectionClosed)
 
-	if loggingEnabled {
-		mainLog.Info("server stopped")
-	}
+	mainLog.Info("server stopped")
 
 	ctx, cancel := context.WithTimeout(context.Background(), withTimeout)
 	defer func() {
 		//TODO: Close database, redis, truncate message queues, etc.
+
+		logger.Sync()
 		cancel()
 	}()
 
 	if err := srv.Shutdown(ctx); err != nil {
-		if loggingEnabled {
-			mainLog.Fatal("server shutdown failed", zap.Error(err))
-		}
-		os.Exit(1)
+		mainLog.Fatal("server shutdown failed", zap.Error(err))
 	}
 }

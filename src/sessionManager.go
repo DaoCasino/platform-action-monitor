@@ -37,15 +37,10 @@ func (s *SessionManager) run(done <-chan struct{}) {
 			delete(s.sessions, session)
 			close(session.send)
 		}
-
-		if loggingEnabled {
-			sessionLog.Info("session manager stopped")
-		}
+		sessionLog.Info("session manager stopped")
 	}()
 
-	if loggingEnabled {
-		sessionLog.Info("session manager started")
-	}
+	sessionLog.Info("session manager started")
 
 	for {
 		select {
@@ -67,9 +62,7 @@ func (s *SessionManager) run(done <-chan struct{}) {
 func serveWs(config *Config, scraper *Scraper, manager *SessionManager, w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		if loggingEnabled {
-			sessionLog.Error("upgrade", zap.Error(err))
-		}
+		sessionLog.Error("upgrade", zap.Error(err))
 		return
 	}
 

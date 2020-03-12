@@ -40,14 +40,10 @@ func newScraper() *Scraper {
 
 func (s *Scraper) run(done <-chan struct{}) {
 	defer func() {
-		if loggingEnabled {
-			scraperLog.Info("scraper stopped")
-		}
+		scraperLog.Info("scraper stopped")
 	}()
 
-	if loggingEnabled {
-		scraperLog.Info("scraper started")
-	}
+	scraperLog.Info("scraper started")
 
 	for {
 		select {
@@ -66,12 +62,10 @@ func (s *Scraper) run(done <-chan struct{}) {
 			}
 
 		case message := <-s.subscribe:
-			if loggingEnabled {
-				scraperLog.Debug("subscribe",
-					zap.String("name", message.name),
-					zap.String("session.id", message.session.ID),
-				)
-			}
+			scraperLog.Debug("subscribe",
+				zap.String("name", message.name),
+				zap.String("session.id", message.session.ID),
+			)
 
 			if topicClients, ok := s.topics[message.name]; ok {
 				topicClients[message.session] = true
@@ -89,12 +83,10 @@ func (s *Scraper) run(done <-chan struct{}) {
 			}
 
 		case message := <-s.unsubscribe:
-			if loggingEnabled {
-				scraperLog.Debug("unsubscribe",
-					zap.String("name", message.name),
-					zap.String("session.id", message.session.ID),
-				)
-			}
+			scraperLog.Debug("unsubscribe",
+				zap.String("name", message.name),
+				zap.String("session.id", message.session.ID),
+			)
 
 			response := new(ScraperResponseMessage)
 			if topicClients, ok := s.topics[message.name]; ok {

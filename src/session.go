@@ -26,10 +26,7 @@ type Session struct {
 
 func newSession(config *SessionConfig, scraper *Scraper, manager *SessionManager, conn *websocket.Conn) *Session {
 	ID := cuid.New()
-
-	if loggingEnabled {
-		sessionLog.Debug("new session", zap.String("ID", ID))
-	}
+	sessionLog.Debug("new session", zap.String("ID", ID))
 
 	return &Session{
 		ID:      ID,
@@ -49,9 +46,7 @@ func (s *Session) readPump() {
 		s.manager.unregister <- s
 		s.conn.Close()
 
-		if loggingEnabled {
-			sessionLog.Debug("readPump close", zap.String("session.id", s.ID))
-		}
+		sessionLog.Debug("readPump close", zap.String("session.id", s.ID))
 	}()
 
 	s.conn.SetReadLimit(s.config.maxMessageSize)
@@ -61,9 +56,7 @@ func (s *Session) readPump() {
 		_, message, err := s.conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				if loggingEnabled {
-					sessionLog.Error("readPump", zap.Error(err))
-				}
+				sessionLog.Error("readPump", zap.Error(err))
 			}
 			break
 		}
@@ -78,9 +71,7 @@ func (s *Session) writePump() {
 		ticker.Stop()
 		s.conn.Close()
 
-		if loggingEnabled {
-			sessionLog.Debug("writePump close", zap.String("session.id", s.ID))
-		}
+		sessionLog.Debug("writePump close", zap.String("session.id", s.ID))
 	}()
 	for {
 		select {
@@ -153,19 +144,17 @@ func (session *Session) process(message []byte) (e error) {
 		}
 	}
 
-	if loggingEnabled {
-		if response.Error != nil {
-			sessionLog.Debug("response error",
-				zap.Stringp("ID", response.ID),
-				zap.Int("code", response.Error.Code),
-				zap.String("message", response.Error.Message),
-			)
-		} else {
-			sessionLog.Debug("response",
-				zap.Stringp("ID", response.ID),
-				zap.String("result", string(response.Result)),
-			)
-		}
+	if response.Error != nil {
+		sessionLog.Debug("response error",
+			zap.Stringp("ID", response.ID),
+			zap.Int("code", response.Error.Code),
+			zap.String("message", response.Error.Message),
+		)
+	} else {
+		sessionLog.Debug("response",
+			zap.Stringp("ID", response.ID),
+			zap.String("result", string(response.Result)),
+		)
 	}
 
 	raw, err := json.Marshal(response)
