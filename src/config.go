@@ -21,6 +21,9 @@ const (
 
 	defaultReadBufferSize  = 1024
 	defaultWriteBufferSize = 1024
+
+	defaultContractABI        = "../contract.abi"
+	defaultContractActionName = "send"
 )
 
 type ConfigFile struct {
@@ -38,6 +41,11 @@ type ConfigFile struct {
 		ReadBufferSize  int64 `yaml:"readBufferSize"`
 		WriteBufferSize int64 `yaml:"writeBufferSize"`
 	} `yaml:"upgrader"`
+
+	Abi struct {
+		File   string `yaml:"file"`
+		Action string `yaml:"action"`
+	} `yaml:"abi"`
 }
 
 type SessionConfig struct {
@@ -53,10 +61,16 @@ type UpgraderConfig struct {
 	writeBufferSize int
 }
 
+type AbiConfig struct {
+	file   string
+	action string
+}
+
 type Config struct {
 	serverAddress string
 	session       SessionConfig
 	upgrader      UpgraderConfig
+	abi           AbiConfig
 }
 
 func newConfig() *Config {
@@ -64,6 +78,7 @@ func newConfig() *Config {
 		serverAddress: defaultAddr,
 		session:       SessionConfig{defaultWriteWait, defaultPongWait, defaultPingPeriod, defaultMaxMessageSize},
 		upgrader:      UpgraderConfig{defaultReadBufferSize, defaultWriteBufferSize},
+		abi:           AbiConfig{defaultContractABI, defaultContractActionName},
 	}
 
 	//var c ConfigFile

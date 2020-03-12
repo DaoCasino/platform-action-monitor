@@ -10,12 +10,14 @@ var mainLog = zap.NewNop()
 var sessionLog = zap.NewNop()
 var scraperLog = zap.NewNop()
 var methodLog = zap.NewNop()
+var decoderLog = zap.NewNop()
 
 func EnableDebugLogging(l *zap.Logger) {
 	mainLog = l
 	sessionLog = l
 	scraperLog = l
 	methodLog = l
+	decoderLog = l
 }
 
 type logStringerFunc func() string

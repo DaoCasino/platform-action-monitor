@@ -1,0 +1,65 @@
+{
+    "____comment": "This file was generated with eosio-abigen. DO NOT EDIT ",
+    "version": "eosio::abi/1.1",
+    "types": [],
+    "structs": [
+        {
+            "name": "send",
+            "base": "",
+            "fields": [
+                {
+                    "name": "sender",
+                    "type": "name"
+                },
+                {
+                    "name": "casino_id",
+                    "type": "uint64"
+                },
+                {
+                    "name": "game_id",
+                    "type": "uint64"
+                },
+                {
+                    "name": "req_id",
+                    "type": "uint64"
+                },
+                {
+                    "name": "event_type",
+                    "type": "uint32"
+                },
+                {
+                    "name": "data",
+                    "type": "bytes"
+                }
+            ]
+        },
+        {
+            "name": "version_row",
+            "base": "",
+            "fields": [
+                {
+                    "name": "version",
+                    "type": "string"
+                }
+            ]
+        }
+    ],
+    "actions": [
+        {
+            "name": "send",
+            "type": "send",
+            "ricardian_contract": ""
+        }
+    ],
+    "tables": [
+        {
+            "name": "version",
+            "type": "version_row",
+            "index_type": "i64",
+            "key_names": [],
+            "key_types": []
+        }
+    ],
+    "ricardian_clauses": [],
+    "variants": []
+}
