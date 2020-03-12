@@ -5,15 +5,16 @@ import (
 )
 
 func setupSessionTestCase(t *testing.T) (*Session, func(t *testing.T)) {
+	config := newConfig()
 	scraper := newScraper()
-	manager := newSessionManager()
+	manager := newSessionManager(&config.upgrader)
 	done := make(chan struct{})
 	go manager.run(done)
 	t.Log("session manager running")
 	go scraper.run(done)
 	t.Log("scraper running")
 
-	session := newSession(scraper, manager, nil)
+	session := newSession(&config.session, scraper, manager, nil)
 	session.manager.register <- session
 
 	t.Log("session register")
@@ -40,7 +41,7 @@ func TestSessionProcess(t *testing.T) {
 		},
 		{
 			"method not found",
-			`{"id":"2","method":"sdfsdf"}`,
+			`{"id":"2","method":"sdfsdf","params":{"topic":"lol"}}`,
 			`{"id":"2","result":null,"error":{"code":-32601,"message":"method not found"}}`,
 		},
 		{

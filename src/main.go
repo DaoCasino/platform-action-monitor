@@ -17,11 +17,10 @@ import (
 const withTimeout = 5 * time.Second
 
 func main() {
-
 	config := newConfig()
 
 	// TODO: delete!
-	logger, _ := zap.NewDevelopment()
+	logger := newLogger(false)
 	EnableDebugLogging(logger)
 	// -----------
 
@@ -66,8 +65,6 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), withTimeout)
 	defer func() {
 		//TODO: Close database, redis, truncate message queues, etc.
-
-		logger.Sync()
 		cancel()
 	}()
 

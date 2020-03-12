@@ -1,15 +1,11 @@
 package main
 
 import (
-	"github.com/kelseyhightower/envconfig"
-	"gopkg.in/yaml.v2"
-	"os"
 	"time"
 )
 
 const (
-	defaultAddr       = ":8888"
-	defaultConfigFile = "config.yml"
+	defaultAddr = ":8888"
 
 	// Time allowed to write a message to the peer.
 	defaultWriteWait = 10 * time.Second
@@ -29,7 +25,7 @@ const (
 
 type ConfigFile struct {
 	Server struct {
-		Addr string `yaml:"addr", envconfig:"SERVER_ADDR"`
+		Addr string `yaml:"addr"`
 	} `yaml:"server"`
 
 	Session struct {
@@ -81,17 +77,17 @@ func newConfig() *Config {
 	return config
 }
 
-func readFile(config *ConfigFile) error {
-	f, err := os.Open(defaultConfigFile)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	decoder := yaml.NewDecoder(f)
-	return decoder.Decode(config)
-}
-
-func readEnv(config *ConfigFile) error {
-	return envconfig.Process("", config)
-}
+//func readFile(config *ConfigFile) error {
+//	f, err := os.Open(defaultConfigFile)
+//	if err != nil {
+//		return err
+//	}
+//	defer f.Close()
+//
+//	decoder := yaml.NewDecoder(f)
+//	return decoder.Decode(config)
+//}
+//
+//func readEnv(config *ConfigFile) error {
+//	return envconfig.Process("", config)
+//}

@@ -34,7 +34,7 @@ func TestMethodUnsubscribe(t *testing.T) {
 	}
 
 	subscribe := &methodSubscribeParams{Topic: topicName}
-	subscribe.execute(session)
+	_, _ = subscribe.execute(session)
 
 	result, err = unsubscribe.execute(session)
 

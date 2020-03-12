@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"go.uber.org/zap"
 	"time"
 
@@ -44,7 +45,9 @@ func (s *Session) setOffset(offset int) {
 func (s *Session) readPump() {
 	defer func() {
 		s.manager.unregister <- s
-		s.conn.Close()
+		if err := s.conn.Close(); err != nil {
+			// sessionLog.Error("connection close error", zap.String("session.id", s.ID), zap.Error(err))
+		}
 
 		sessionLog.Debug("readPump close", zap.String("session.id", s.ID))
 	}()
@@ -56,12 +59,15 @@ func (s *Session) readPump() {
 		_, message, err := s.conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				sessionLog.Error("readPump", zap.Error(err))
+				sessionLog.Error("readPump", zap.String("session.id", s.ID), zap.Error(err))
 			}
 			break
 		}
 
-		s.process(message)
+		if err := s.process(message); err != nil {
+			sessionLog.Error("process error", zap.String("session.id", s.ID), zap.Error(err))
+			break
+		}
 	}
 }
 
@@ -69,99 +75,118 @@ func (s *Session) writePump() {
 	ticker := time.NewTicker(s.config.pingPeriod)
 	defer func() {
 		ticker.Stop()
-		s.conn.Close()
-
+		_ = s.conn.Close()
 		sessionLog.Debug("writePump close", zap.String("session.id", s.ID))
 	}()
 	for {
 		select {
 		case message, ok := <-s.send:
-			s.conn.SetWriteDeadline(time.Now().Add(s.config.writeWait))
+			_ = s.conn.SetWriteDeadline(time.Now().Add(s.config.writeWait))
 			if !ok {
 				// The session closed the channel.
-				s.conn.WriteMessage(websocket.CloseMessage, []byte{})
+				if err := s.conn.WriteMessage(websocket.CloseMessage, []byte{}); err != nil {
+					// sessionLog.Error("writeCloseMessage error", zap.String("session.id", s.ID), zap.Error(err))
+				}
 				return
 			}
 
 			w, err := s.conn.NextWriter(websocket.TextMessage)
 			if err != nil {
+				// sessionLog.Error("nextWriter error", zap.String("session.id", s.ID), zap.Error(err))
 				return
 			}
-			w.Write(message)
+
+			if _, err := w.Write(message); err != nil {
+				// sessionLog.Error("write error", zap.String("session.id", s.ID), zap.Error(err))
+				return
+			}
 
 			if err := w.Close(); err != nil {
+				// sessionLog.Error("writer close error", zap.String("session.id", s.ID), zap.Error(err))
 				return
 			}
+
 		case <-ticker.C:
-			s.conn.SetWriteDeadline(time.Now().Add(s.config.writeWait))
+			_ = s.conn.SetWriteDeadline(time.Now().Add(s.config.writeWait))
 			if err := s.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+				sessionLog.Error("ping message error", zap.String("session.id", s.ID), zap.Error(err))
 				return
 			}
 		}
 	}
 }
 
-// FIX: I do not know how to do better, there are 2 types of errors
-func (session *Session) process(message []byte) (e error) {
+func parseRequest(message []byte, response *ResponseMessage) (methodExecutor, error) {
 	request := new(RequestMessage)
-	response := newResponseMessage()
-
 	if err := json.Unmarshal(message, request); err != nil {
 		response.parseError()
-		e = err
-	} else {
-		response.ID = request.ID
-
-		method, err := methodExecutorFactory(*request.Method)
-
-		if err != nil {
-			response.methodNotFound()
-		} else {
-			if len(request.Params) == 0 {
-				response.invalidParams()
-			} else {
-				err := json.Unmarshal(request.Params, &method)
-				if err != nil {
-					response.parseError()
-					e = err
-				} else {
-					if method.isValid() {
-						result, err := method.execute(session)
-						if err != nil {
-							response.setError(err)
-						} else {
-							err := response.setResult(result)
-							if err != nil {
-								response.parseError()
-								e = err
-							}
-						}
-					} else {
-						response.invalidParams()
-					}
-				}
-			}
-		}
+		return nil, err
 	}
 
-	if response.Error != nil {
+	response.ID = request.ID
+
+	if len(request.Params) == 0 {
+		response.invalidParams()
+		return nil, fmt.Errorf("invalid params")
+	}
+
+	method, err := methodExecutorFactory(*request.Method)
+	if err != nil {
+		response.methodNotFound()
+		return nil, err
+	}
+
+	if err := json.Unmarshal(request.Params, &method); err != nil {
+		response.parseError()
+		return nil, err
+	}
+
+	if !method.isValid() {
+		response.invalidParams()
+		return nil, fmt.Errorf("invalid params")
+	}
+
+	return method, nil
+}
+
+func (s *Session) process(message []byte) error {
+	response := newResponseMessage()
+	defer func() {
+		raw, err := json.Marshal(response)
+		if err != nil {
+			sessionLog.Error("response marshal", zap.Error(err))
+			return
+		}
+		s.send <- raw
+	}()
+
+	method, err := parseRequest(message, response)
+	if err != nil {
+		return err
+	}
+
+	result, err := method.execute(s)
+	if err != nil {
+		response.setError(err)
+
 		sessionLog.Debug("response error",
 			zap.Stringp("ID", response.ID),
 			zap.Int("code", response.Error.Code),
 			zap.String("message", response.Error.Message),
 		)
-	} else {
-		sessionLog.Debug("response",
-			zap.Stringp("ID", response.ID),
-			zap.String("result", string(response.Result)),
-		)
+
+		return nil
 	}
 
-	raw, err := json.Marshal(response)
-	if err != nil {
+	if err := response.setResult(result); err != nil {
+		response.parseError()
 		return err
 	}
 
-	session.send <- raw
-	return e
+	sessionLog.Debug("response",
+		zap.Stringp("ID", response.ID),
+		zap.String("result", string(response.Result)),
+	)
+
+	return nil
 }
