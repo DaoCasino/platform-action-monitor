@@ -2,3 +2,6 @@ environment/history-tools/
 environment/database/
 protocol_features/
 nodeos.log
+.idea/
+**/node_modules/
+**/.DS_Store
