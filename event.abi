@@ -7,11 +7,11 @@
             "base": "",
             "fields": [
                 {
-                    "name": "balabal",
+                    "name": "a",
                     "type": "uint64"
                 },
                 {
-                    "name": "qwerty",
+                    "name": "b",
                     "type": "uint32"
                 }
             ]

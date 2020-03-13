@@ -23,6 +23,7 @@ const (
 	defaultWriteBufferSize = 1024
 
 	defaultContractABI = "../contract.abi"
+	defaultEventABI    = "../event.abi"
 )
 
 type ConfigFile struct {
@@ -80,6 +81,8 @@ func newConfig() *Config {
 		upgrader:      UpgraderConfig{defaultReadBufferSize, defaultWriteBufferSize},
 		abi:           AbiConfig{main: defaultContractABI, events: make(map[int]string)},
 	}
+
+	config.abi.events[0] = defaultEventABI
 
 	//var c ConfigFile
 	//readFile(&c)
