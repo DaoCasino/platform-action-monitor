@@ -8,7 +8,6 @@ import (
 )
 
 func TestDecoder(t *testing.T) {
-
 	decoder, err := newDecoder(defaultContractABI)
 	require.NoError(t, err)
 
@@ -19,10 +18,6 @@ func TestDecoder(t *testing.T) {
 
 	decodeBytes, err := decoder.decodeAction(encodeBytes, defaultContractActionName)
 	assert.Equal(t, data, decodeBytes)
-
-	fields, err := decoder.decodeEvent(encodeBytes)
-	require.NoError(t, err)
-	assert.Equal(t, fields.EventType, 4)
 }
 
 func TestAbiDecoder(t *testing.T) {

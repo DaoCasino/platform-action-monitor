@@ -22,8 +22,7 @@ const (
 	defaultReadBufferSize  = 1024
 	defaultWriteBufferSize = 1024
 
-	defaultContractABI        = "../contract.abi"
-	defaultContractActionName = "send"
+	defaultContractABI = "../contract.abi"
 )
 
 type ConfigFile struct {

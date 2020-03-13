@@ -2,16 +2,22 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/eoscanada/eos-go"
 	"go.uber.org/zap"
 	"os"
+)
+
+const (
+	defaultContractActionName = "send"
+	defaultEventStructName    = "event"
 )
 
 type Decoder struct {
 	abi *eos.ABI
 }
 
-type ContractFields struct {
+type Event struct {
 	Sender    string          `json:"sender"`
 	CasinoID  uint64          `json:"casino_id"`
 	GameID    uint64          `json:"game_id"`
@@ -51,16 +57,18 @@ func (d *Decoder) decodeAction(data []byte, actionName string) ([]byte, error) {
 	return bytes, nil
 }
 
-func (d *Decoder) decodeEvent(data []byte) (*ContractFields, error) {
-	decodeBytes, err := d.decodeAction(data, defaultContractActionName)
+func (d *Decoder) decodeStruct(data []byte, structName string) ([]byte, error) {
+	bytes, err := d.abi.Decode(eos.NewDecoder(data), structName)
 	if err != nil {
+		decoderLog.Error("decoder struct", zap.String("struct", structName), zap.Error(err))
 		return nil, err
 	}
-	return newContractFields(decodeBytes)
+
+	return bytes, nil
 }
 
-func newContractFields(data []byte) (*ContractFields, error) {
-	fields := new(ContractFields)
+func newEvent(data []byte) (*Event, error) {
+	fields := new(Event)
 	if err := json.Unmarshal(data, fields); err != nil {
 		decoderLog.Error("parse contract fields error", zap.Error(err))
 		return nil, err
@@ -85,4 +93,33 @@ func newAbiDecoder(c *AbiConfig) (a *AbiDecoder, e error) {
 	}
 
 	return
+}
+
+func (a *AbiDecoder) decodeEvent(data []byte) (*Event, error) {
+	decodeBytes, err := a.main.decodeAction(data, defaultContractActionName)
+	if err != nil {
+		return nil, err
+	}
+	return newEvent(decodeBytes)
+}
+
+func (a *AbiDecoder) decodeEventData(event int, data []byte) ([]byte, error) {
+	if _, ok := a.events[event]; !ok {
+		return nil, fmt.Errorf("no abi with eventType: %d", event)
+	}
+
+	return a.events[event].decodeStruct(data, defaultEventStructName)
+}
+
+func (a *AbiDecoder) decode(data []byte) ([]byte, error) {
+	event, err := a.decodeEvent(data)
+	if err != nil {
+		return nil, err
+	}
+	decodeBytes, err := a.decodeEventData(event.EventType, event.Data)
+	if err != nil {
+		return nil, err
+	}
+	event.Data = decodeBytes
+	return json.Marshal(event)
 }
