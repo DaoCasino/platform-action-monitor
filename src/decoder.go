@@ -8,7 +8,8 @@ import (
 )
 
 type Decoder struct {
-	abi *eos.ABI
+	abi    *eos.ABI
+	action string
 }
 
 type ContractFields struct {
@@ -20,7 +21,19 @@ type ContractFields struct {
 	Data      json.RawMessage `json:"data"`
 }
 
-func newDecoder(filename string) (*Decoder, error) {
+type AbiDecoder struct {
+	eventContract *Decoder
+	events        map[int]*Decoder
+}
+
+const (
+	eventRequestDeposit = iota
+	eventRequestPlatformAction
+	eventRequestCasinoAction
+	eventGameFinished
+)
+
+func newDecoder(filename string, action string) (*Decoder, error) {
 	f, err := os.Open(filename)
 	if err != nil {
 		decoderLog.Error("decoder file", zap.String("filename", filename), zap.Error(err))
@@ -34,7 +47,7 @@ func newDecoder(filename string) (*Decoder, error) {
 		return nil, err
 	}
 
-	return &Decoder{abi}, nil
+	return &Decoder{abi, action}, nil
 }
 
 func (d *Decoder) decodeAction(data []byte, actionName string) ([]byte, error) {
@@ -54,4 +67,32 @@ func newContractFields(data []byte) (*ContractFields, error) {
 	}
 
 	return fields, nil
+}
+
+func newAbiDecoder(c *AbiConfig) (a *AbiDecoder, e error) {
+	a = new(AbiDecoder)
+	a.eventContract, e = newDecoder(c.events.file, c.events.action)
+	if e != nil {
+		return
+	}
+
+	a.events = make(map[int]*Decoder)
+	a.events[eventRequestDeposit], e = newDecoder(c.reqDeposit.file, c.reqDeposit.action)
+	if e != nil {
+		return
+	}
+	a.events[eventRequestPlatformAction], e = newDecoder(c.reqPlatformAction.file, c.reqPlatformAction.action)
+	if e != nil {
+		return
+	}
+	a.events[eventRequestCasinoAction], e = newDecoder(c.reqCasinoAction.file, c.reqCasinoAction.action)
+	if e != nil {
+		return
+	}
+	a.events[eventGameFinished], e = newDecoder(c.gameFinished.file, c.gameFinished.action)
+	if e != nil {
+		return
+	}
+
+	return
 }

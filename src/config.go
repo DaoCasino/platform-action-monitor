@@ -61,9 +61,17 @@ type UpgraderConfig struct {
 	writeBufferSize int
 }
 
-type AbiConfig struct {
+type AbiConfigFields struct {
 	file   string
 	action string
+}
+
+type AbiConfig struct {
+	events            AbiConfigFields
+	reqDeposit        AbiConfigFields
+	reqPlatformAction AbiConfigFields
+	reqCasinoAction   AbiConfigFields
+	gameFinished      AbiConfigFields
 }
 
 type Config struct {
@@ -74,11 +82,12 @@ type Config struct {
 }
 
 func newConfig() *Config {
+	a := AbiConfigFields{defaultContractABI, defaultContractActionName}
 	config := &Config{
 		serverAddress: defaultAddr,
 		session:       SessionConfig{defaultWriteWait, defaultPongWait, defaultPingPeriod, defaultMaxMessageSize},
 		upgrader:      UpgraderConfig{defaultReadBufferSize, defaultWriteBufferSize},
-		abi:           AbiConfig{defaultContractABI, defaultContractActionName},
+		abi:           AbiConfig{a, a, a, a, a},
 	}
 
 	//var c ConfigFile
