@@ -22,8 +22,7 @@ const (
 	defaultReadBufferSize  = 1024
 	defaultWriteBufferSize = 1024
 
-	defaultContractABI        = "../contract.abi"
-	defaultContractActionName = "send"
+	defaultContractABI = "../contract.abi"
 )
 
 type ConfigFile struct {
@@ -61,17 +60,9 @@ type UpgraderConfig struct {
 	writeBufferSize int
 }
 
-type AbiConfigFields struct {
-	file   string
-	action string
-}
-
 type AbiConfig struct {
-	events            AbiConfigFields
-	reqDeposit        AbiConfigFields
-	reqPlatformAction AbiConfigFields
-	reqCasinoAction   AbiConfigFields
-	gameFinished      AbiConfigFields
+	main   string
+	events map[int]string
 }
 
 type Config struct {
@@ -82,12 +73,12 @@ type Config struct {
 }
 
 func newConfig() *Config {
-	a := AbiConfigFields{defaultContractABI, defaultContractActionName}
+
 	config := &Config{
 		serverAddress: defaultAddr,
 		session:       SessionConfig{defaultWriteWait, defaultPongWait, defaultPingPeriod, defaultMaxMessageSize},
 		upgrader:      UpgraderConfig{defaultReadBufferSize, defaultWriteBufferSize},
-		abi:           AbiConfig{a, a, a, a, a},
+		abi:           AbiConfig{main: defaultContractABI, events: make(map[int]string)},
 	}
 
 	//var c ConfigFile

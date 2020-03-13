@@ -8,7 +8,8 @@ import (
 )
 
 func TestDecoder(t *testing.T) {
-	decoder, err := newDecoder(defaultContractABI, defaultContractActionName)
+	const defaultContractActionName = "send"
+	decoder, err := newDecoder(defaultContractABI)
 	require.NoError(t, err)
 
 	data := []byte(`{"data":"","event_type":4,"req_id":3,"game_id":2,"casino_id":1,"sender":"test"}`)
@@ -21,7 +22,7 @@ func TestDecoder(t *testing.T) {
 
 	fields, err := newContractFields(decodeBytes)
 	require.NoError(t, err)
-	assert.Equal(t, fields.EventType, uint32(4))
+	assert.Equal(t, fields.EventType, 4)
 }
 
 func TestAbiDecoder(t *testing.T) {

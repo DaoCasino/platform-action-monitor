@@ -8,8 +8,7 @@ import (
 )
 
 type Decoder struct {
-	abi    *eos.ABI
-	action string
+	abi *eos.ABI
 }
 
 type ContractFields struct {
@@ -17,23 +16,16 @@ type ContractFields struct {
 	CasinoID  uint64          `json:"casino_id"`
 	GameID    uint64          `json:"game_id"`
 	RequestID uint64          `json:"req_id"`
-	EventType uint32          `json:"event_type"`
+	EventType int             `json:"event_type"`
 	Data      json.RawMessage `json:"data"`
 }
 
 type AbiDecoder struct {
-	eventContract *Decoder
-	events        map[int]*Decoder
+	main   *Decoder
+	events map[int]*Decoder
 }
 
-const (
-	eventRequestDeposit = iota
-	eventRequestPlatformAction
-	eventRequestCasinoAction
-	eventGameFinished
-)
-
-func newDecoder(filename string, action string) (*Decoder, error) {
+func newDecoder(filename string) (*Decoder, error) {
 	f, err := os.Open(filename)
 	if err != nil {
 		decoderLog.Error("decoder file", zap.String("filename", filename), zap.Error(err))
@@ -47,7 +39,7 @@ func newDecoder(filename string, action string) (*Decoder, error) {
 		return nil, err
 	}
 
-	return &Decoder{abi, action}, nil
+	return &Decoder{abi}, nil
 }
 
 func (d *Decoder) decodeAction(data []byte, actionName string) ([]byte, error) {
@@ -71,27 +63,17 @@ func newContractFields(data []byte) (*ContractFields, error) {
 
 func newAbiDecoder(c *AbiConfig) (a *AbiDecoder, e error) {
 	a = new(AbiDecoder)
-	a.eventContract, e = newDecoder(c.events.file, c.events.action)
+	a.main, e = newDecoder(c.main)
 	if e != nil {
 		return
 	}
 
 	a.events = make(map[int]*Decoder)
-	a.events[eventRequestDeposit], e = newDecoder(c.reqDeposit.file, c.reqDeposit.action)
-	if e != nil {
-		return
-	}
-	a.events[eventRequestPlatformAction], e = newDecoder(c.reqPlatformAction.file, c.reqPlatformAction.action)
-	if e != nil {
-		return
-	}
-	a.events[eventRequestCasinoAction], e = newDecoder(c.reqCasinoAction.file, c.reqCasinoAction.action)
-	if e != nil {
-		return
-	}
-	a.events[eventGameFinished], e = newDecoder(c.gameFinished.file, c.gameFinished.action)
-	if e != nil {
-		return
+	for eventType, contractFileName := range c.events {
+		a.events[eventType], e = newDecoder(contractFileName)
+		if e != nil {
+			return
+		}
 	}
 
 	return

@@ -11,18 +11,8 @@ upgrader: # websocket upgrader
   writeBufferSize: 1024
 
 abi:
+  main: ../contract.abi
   events:
-    file: ../contract.abi
-    action: send
-  reqDeposit:
-    file: ../contract.abi
-    action: send
-  reqPlatformAction:
-    file: ../contract.abi
-    action: send
-  reqCasinoAction:
-    file: ../contract.abi
-    action: send
-  gameFinished:
-    file: ../contract.abi
-    action: send
+    0: ../contract.abi
+    1: ../contract.abi
+    150: ../contract.abi
