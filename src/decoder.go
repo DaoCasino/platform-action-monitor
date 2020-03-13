@@ -51,6 +51,14 @@ func (d *Decoder) decodeAction(data []byte, actionName string) ([]byte, error) {
 	return bytes, nil
 }
 
+func (d *Decoder) decodeEvent(data []byte) (*ContractFields, error) {
+	decodeBytes, err := d.decodeAction(data, defaultContractActionName)
+	if err != nil {
+		return nil, err
+	}
+	return newContractFields(decodeBytes)
+}
+
 func newContractFields(data []byte) (*ContractFields, error) {
 	fields := new(ContractFields)
 	if err := json.Unmarshal(data, fields); err != nil {

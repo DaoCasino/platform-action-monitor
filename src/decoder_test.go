@@ -8,7 +8,7 @@ import (
 )
 
 func TestDecoder(t *testing.T) {
-	const defaultContractActionName = "send"
+
 	decoder, err := newDecoder(defaultContractABI)
 	require.NoError(t, err)
 
@@ -20,7 +20,7 @@ func TestDecoder(t *testing.T) {
 	decodeBytes, err := decoder.decodeAction(encodeBytes, defaultContractActionName)
 	assert.Equal(t, data, decodeBytes)
 
-	fields, err := newContractFields(decodeBytes)
+	fields, err := decoder.decodeEvent(encodeBytes)
 	require.NoError(t, err)
 	assert.Equal(t, fields.EventType, 4)
 }
