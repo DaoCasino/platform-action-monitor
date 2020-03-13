@@ -21,5 +21,5 @@ func TestDecoder(t *testing.T) {
 
 	fields, err := newContractFields(decodeBytes)
 	require.NoError(t, err)
-	assert.Equal(t, fields.EventType, 4)
+	assert.Equal(t, fields.EventType, uint32(4))
 }

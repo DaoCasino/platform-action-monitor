@@ -13,10 +13,10 @@ type Decoder struct {
 
 type ContractFields struct {
 	Sender    string          `json:"sender"`
-	CasinoID  int             `json:"casino_id"`
-	GameID    int             `json:"game_id"`
-	RequestID int             `json:"req_id"`
-	EventType int             `json:"event_type"`
+	CasinoID  uint64          `json:"casino_id"`
+	GameID    uint64          `json:"game_id"`
+	RequestID uint64          `json:"req_id"`
+	EventType uint32          `json:"event_type"`
 	Data      json.RawMessage `json:"data"`
 }
 
