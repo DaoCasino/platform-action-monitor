@@ -18,4 +18,8 @@ func TestDecoder(t *testing.T) {
 
 	decodeBytes, err := decoder.decodeAction(encodeBytes, defaultContractActionName)
 	assert.Equal(t, data, decodeBytes)
+
+	fields, err := newContractFields(decodeBytes)
+	require.NoError(t, err)
+	assert.Equal(t, fields.EventType, 4)
 }

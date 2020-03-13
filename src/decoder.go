@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"github.com/eoscanada/eos-go"
 	"go.uber.org/zap"
 	"os"
@@ -8,6 +9,15 @@ import (
 
 type Decoder struct {
 	abi *eos.ABI
+}
+
+type ContractFields struct {
+	Sender    string          `json:"sender"`
+	CasinoID  int             `json:"casino_id"`
+	GameID    int             `json:"game_id"`
+	RequestID int             `json:"req_id"`
+	EventType int             `json:"event_type"`
+	Data      json.RawMessage `json:"data"`
 }
 
 func newDecoder(filename string) (*Decoder, error) {
@@ -34,4 +44,14 @@ func (d *Decoder) decodeAction(data []byte, actionName string) ([]byte, error) {
 		return nil, err
 	}
 	return bytes, nil
+}
+
+func newContractFields(data []byte) (*ContractFields, error) {
+	fields := new(ContractFields)
+	if err := json.Unmarshal(data, fields); err != nil {
+		decoderLog.Error("parse contract fields error", zap.Error(err))
+		return nil, err
+	}
+
+	return fields, nil
 }
