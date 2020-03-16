@@ -1,0 +1,24 @@
+{
+    "version": "eosio::abi/1.1",
+    "types": [],
+    "structs": [
+        {
+            "name": "event",
+            "base": "",
+            "fields": [
+                {
+                    "name": "a",
+                    "type": "uint64"
+                },
+                {
+                    "name": "b",
+                    "type": "uint32"
+                }
+            ]
+        }
+    ],
+    "actions": [],
+    "tables": [],
+    "ricardian_clauses": [],
+    "variants": []
+}

@@ -9,3 +9,10 @@ session:
 upgrader: # websocket upgrader
   readBufferSize: 1024
   writeBufferSize: 1024
+
+abi:
+  main: ../contract.abi
+  events:
+    0: ../contract.abi
+    1: ../contract.abi
+    150: ../contract.abi
