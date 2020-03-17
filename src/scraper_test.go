@@ -67,3 +67,32 @@ func TestScraperUnsubscribe(t *testing.T) {
 		t.Errorf("topics len %d; want 0", len(session.scraper.topics))
 	}
 }
+
+func TestBroadcastMessage(t *testing.T) {
+	session, teardownTestCase := setupSessionTestCase(t)
+	defer teardownTestCase(t)
+
+	const topicName = "test"
+
+	msg := &ScraperBroadcastMessage{
+		message:  []byte("test"),
+		name:     topicName,
+		response: make(chan *ScraperResponseMessage),
+	}
+	session.scraper.broadcast <- msg
+	res := <-msg.response
+
+	if res.result == true {
+		t.Error("broadcast result true; want false")
+	}
+
+	session.scraper.subscribe <- &ScraperSubscribeMessage{name: topicName, session: session, response: nil}
+	msg.response = make(chan *ScraperResponseMessage)
+
+	session.scraper.broadcast <- msg
+	res = <-msg.response
+
+	if res.result == false {
+		t.Error("broadcast result false; want true")
+	}
+}

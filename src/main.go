@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/jackc/pgx/v4"
 )
 
 // context DeadLine timeout
@@ -26,7 +27,12 @@ func main() {
 
 	flag.Parse()
 
-	scraper := newScraper()
+	db, err := pgx.Connect(context.Background(), config.databaseUrl)
+	if err != nil {
+		mainLog.Fatal("database connection", zap.Error(err))
+	}
+
+	scraper := newScraper(db)
 	manager := newSessionManager(&config.upgrader)
 
 	router := mux.NewRouter()
@@ -65,6 +71,8 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), withTimeout)
 	defer func() {
 		//TODO: Close database, redis, truncate message queues, etc.
+		db.Close(context.Background())
+
 		cancel()
 	}()
 
