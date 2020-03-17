@@ -68,9 +68,15 @@ type AbiConfig struct {
 	events map[int]string
 }
 
+type DatabaseFilters struct {
+	actAccount *string
+	actName    *string
+}
+
 type DatabaseConfig struct {
 	url         string
 	queryPeriod time.Duration
+	filter      DatabaseFilters
 }
 
 type Config struct {

@@ -1,9 +1,12 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"github.com/jackc/pgx/v4"
 	"go.uber.org/zap"
+	"log"
+	"strings"
 	"time"
 )
 
@@ -161,4 +164,37 @@ func (s *Scraper) process() {
 		2 надо расарсить запись act_data
 		3 надо отправить броадкаст по подписчикам
 	*/
+}
+
+// TODO: возвращает канал или массив ...
+func getActionData(db *pgx.Conn, offset uint, filter *DatabaseFilters) error {
+	var whereParams []string
+	if filter != nil {
+		if filter.actAccount != nil {
+			whereParams = append(whereParams, fmt.Sprintf("act_account='%s'", *filter.actAccount))
+		}
+		if filter.actName != nil {
+			whereParams = append(whereParams, fmt.Sprintf("act_name='%s'", *filter.actName))
+		}
+	}
+
+	var where string
+	if len(whereParams) != 0 {
+		where = fmt.Sprintf(" WHERE %s", strings.Join(whereParams, " AND "))
+		scraperLog.Debug("getActionData", zap.String("where", where))
+	}
+
+	rows, _ := db.Query(context.Background(), "SELECT act_data FROM chain.action_trace $1 receipt_global_sequence > $2  ORDER BY receipt_global_sequence ASC", where, offset)
+
+	for rows.Next() {
+		var data []byte
+		err := rows.Scan(&data)
+		if err != nil {
+			return err
+		}
+
+		log.Printf("%+v", data)
+	}
+
+	return rows.Err()
 }
