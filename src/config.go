@@ -22,9 +22,10 @@ const (
 	defaultReadBufferSize  = 1024
 	defaultWriteBufferSize = 1024
 
-	defaultContractABI = "../contract.abi"
-	defaultEventABI    = "../event.abi"
-	defaultDatabaseUrl = "postgres://test:test@localhost/test"
+	defaultContractABI         = "../contract.abi"
+	defaultEventABI            = "../event.abi"
+	defaultDatabaseUrl         = "postgres://test:test@localhost/test"
+	defaultDatabaseQueryPeriod = 100 * time.Millisecond // TODO: need 100ms!!!
 )
 
 type ConfigFile struct {
@@ -67,8 +68,13 @@ type AbiConfig struct {
 	events map[int]string
 }
 
+type DatabaseConfig struct {
+	url         string
+	queryPeriod time.Duration
+}
+
 type Config struct {
-	databaseUrl   string
+	db            DatabaseConfig
 	serverAddress string
 	session       SessionConfig
 	upgrader      UpgraderConfig
@@ -78,7 +84,7 @@ type Config struct {
 func newConfig() *Config {
 
 	config := &Config{
-		databaseUrl:   defaultDatabaseUrl,
+		db:            DatabaseConfig{defaultDatabaseUrl, defaultDatabaseQueryPeriod},
 		serverAddress: defaultAddr,
 		session:       SessionConfig{defaultWriteWait, defaultPongWait, defaultPingPeriod, defaultMaxMessageSize},
 		upgrader:      UpgraderConfig{defaultReadBufferSize, defaultWriteBufferSize},

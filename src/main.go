@@ -27,12 +27,12 @@ func main() {
 
 	flag.Parse()
 
-	db, err := pgx.Connect(context.Background(), config.databaseUrl)
+	db, err := pgx.Connect(context.Background(), config.db.url)
 	if err != nil {
 		mainLog.Fatal("database connection", zap.Error(err))
 	}
 
-	scraper := newScraper(db)
+	scraper := newScraper(db, config.db.queryPeriod)
 	manager := newSessionManager(&config.upgrader)
 
 	router := mux.NewRouter()

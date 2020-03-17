@@ -7,9 +7,6 @@ import (
 	"time"
 )
 
-// TODO: перенести в конфиг
-const queryInterval = time.Millisecond * 500
-
 type ScraperSubscribeMessage struct {
 	name     string
 	session  *Session
@@ -34,7 +31,9 @@ type ScraperResponseMessage struct {
 }
 
 type Scraper struct {
-	db                 *pgx.Conn
+	db          *pgx.Conn
+	queryPeriod time.Duration
+
 	topics             map[string]map[*Session]bool
 	unsubscribeSession chan *Session
 	subscribe          chan *ScraperSubscribeMessage
@@ -42,9 +41,10 @@ type Scraper struct {
 	broadcast          chan *ScraperBroadcastMessage
 }
 
-func newScraper(db *pgx.Conn) *Scraper {
+func newScraper(db *pgx.Conn, queryPeriod time.Duration) *Scraper {
 	return &Scraper{
 		db:                 db,
+		queryPeriod:        queryPeriod,
 		topics:             make(map[string]map[*Session]bool),
 		subscribe:          make(chan *ScraperSubscribeMessage),
 		unsubscribe:        make(chan *ScraperUnsubscribeMessage),
@@ -54,7 +54,8 @@ func newScraper(db *pgx.Conn) *Scraper {
 }
 
 func (s *Scraper) run(done <-chan struct{}) {
-	ticker := time.NewTicker(queryInterval)
+	// log.Fatalf("%d", s.queryPeriod)
+	ticker := time.NewTicker(s.queryPeriod)
 
 	defer func() {
 		ticker.Stop()
