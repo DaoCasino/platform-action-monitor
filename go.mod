@@ -3,6 +3,7 @@ module github.com/DaoCasino/platform-action-monitor
 go 1.12
 
 require (
+	github.com/DATA-DOG/go-sqlmock v1.4.1
 	github.com/coreos/go-systemd v0.0.0-20190719114852-fd7a80b32e1f // indirect
 	github.com/eoscanada/eos-go v0.9.1-0.20200227221642-1b19518201a1
 	github.com/gorilla/mux v1.7.4

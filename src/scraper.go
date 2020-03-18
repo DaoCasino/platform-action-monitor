@@ -5,9 +5,7 @@ import (
 	"fmt"
 	"github.com/jackc/pgx/v4"
 	"go.uber.org/zap"
-	"log"
 	"strings"
-	"time"
 )
 
 type ScraperSubscribeMessage struct {
@@ -34,9 +32,7 @@ type ScraperResponseMessage struct {
 }
 
 type Scraper struct {
-	db          *pgx.Conn
-	queryPeriod time.Duration
-
+	db                 *pgx.Conn
 	topics             map[string]map[*Session]bool
 	unsubscribeSession chan *Session
 	subscribe          chan *ScraperSubscribeMessage
@@ -44,10 +40,9 @@ type Scraper struct {
 	broadcast          chan *ScraperBroadcastMessage
 }
 
-func newScraper(db *pgx.Conn, queryPeriod time.Duration) *Scraper {
+func newScraper(db *pgx.Conn) *Scraper {
 	return &Scraper{
 		db:                 db,
-		queryPeriod:        queryPeriod,
 		topics:             make(map[string]map[*Session]bool),
 		subscribe:          make(chan *ScraperSubscribeMessage),
 		unsubscribe:        make(chan *ScraperUnsubscribeMessage),
@@ -57,11 +52,14 @@ func newScraper(db *pgx.Conn, queryPeriod time.Duration) *Scraper {
 }
 
 func (s *Scraper) run(done <-chan struct{}) {
-	// log.Fatalf("%d", s.queryPeriod)
-	ticker := time.NewTicker(s.queryPeriod)
+	notification := make(chan string)
+
+	if s.db != nil {
+		go listenNotify(s.db, notification)
+	}
 
 	defer func() {
-		ticker.Stop()
+		close(notification)
 		scraperLog.Info("scraper stopped")
 	}()
 
@@ -72,8 +70,8 @@ func (s *Scraper) run(done <-chan struct{}) {
 		case <-done:
 			return
 
-		case <-ticker.C:
-			scraperLog.Debug("timer tick tick")
+		case offset := <-notification:
+			scraperLog.Debug("pg notify", zap.String("offset", offset))
 
 		case session := <-s.unsubscribeSession:
 			for name, topicSessions := range s.topics {
@@ -160,15 +158,48 @@ func (s *Scraper) run(done <-chan struct{}) {
 
 func (s *Scraper) process() {
 	/*
-		1 надо получить запись из бд
+		1 надо слушать notify pg
 		2 надо расарсить запись act_data
 		3 надо отправить броадкаст по подписчикам
 	*/
 }
 
-// TODO: возвращает канал или массив ...
-func getActionData(db *pgx.Conn, offset uint, filter *DatabaseFilters) error {
+func listenNotify(db *pgx.Conn, payload chan string) {
+	_, err := db.Exec(context.Background(), "listen new_action_trace")
+	if err != nil {
+		scraperLog.Fatal("error listening new_action_trace", zap.Error(err))
+	}
+
+	scraperLog.Debug("listenNotify start")
+
+	defer func() {
+		scraperLog.Debug("listenNotify stop")
+	}()
+
+	for {
+		notification, err := db.WaitForNotification(context.Background())
+		if err != nil {
+			scraperLog.Error("error listening new_action_trace", zap.Error(err))
+			return
+		}
+
+		scraperLog.Debug("notify",
+			zap.Uint32("PID", notification.PID),
+			zap.String("channel", notification.Channel),
+			zap.String("payload", notification.Payload),
+		)
+
+		select {
+		case payload <- notification.Payload:
+		default:
+			return
+		}
+	}
+}
+
+func getActionData(db *pgx.Conn, offset uint, count uint, filter *DatabaseFilters) ([][]byte, error) {
 	var whereParams []string
+
 	if filter != nil {
 		if filter.actAccount != nil {
 			whereParams = append(whereParams, fmt.Sprintf("act_account='%s'", *filter.actAccount))
@@ -178,23 +209,30 @@ func getActionData(db *pgx.Conn, offset uint, filter *DatabaseFilters) error {
 		}
 	}
 
+	whereParams = append(whereParams, fmt.Sprintf("receipt_global_sequence >= %d", offset))
+
 	var where string
 	if len(whereParams) != 0 {
-		where = fmt.Sprintf(" WHERE %s", strings.Join(whereParams, " AND "))
+		where = strings.Join(whereParams, " AND ")
 		scraperLog.Debug("getActionData", zap.String("where", where))
 	}
 
-	rows, _ := db.Query(context.Background(), "SELECT act_data FROM chain.action_trace $1 receipt_global_sequence > $2  ORDER BY receipt_global_sequence ASC", where, offset)
+	sql := fmt.Sprintf("SELECT act_data FROM chain.action_trace WHERE %s ORDER BY receipt_global_sequence ASC LIMIT %d", where, count)
+	scraperLog.Debug("getActionData", zap.String("sql", sql))
+
+	rows, _ := db.Query(context.Background(), sql)
+
+	result := make([][]byte, 0)
 
 	for rows.Next() {
 		var data []byte
 		err := rows.Scan(&data)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
-		log.Printf("%+v", data)
+		result = append(result, data)
 	}
 
-	return rows.Err()
+	return result, rows.Err()
 }

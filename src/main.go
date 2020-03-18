@@ -32,7 +32,7 @@ func main() {
 		mainLog.Fatal("database connection", zap.Error(err))
 	}
 
-	scraper := newScraper(db, config.db.queryPeriod)
+	scraper := newScraper(db)
 	manager := newSessionManager(&config.upgrader)
 
 	router := mux.NewRouter()

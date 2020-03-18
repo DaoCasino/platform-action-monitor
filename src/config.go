@@ -22,10 +22,9 @@ const (
 	defaultReadBufferSize  = 1024
 	defaultWriteBufferSize = 1024
 
-	defaultContractABI         = "../contract.abi"
-	defaultEventABI            = "../event.abi"
-	defaultDatabaseUrl         = "postgres://test:test@localhost/test"
-	defaultDatabaseQueryPeriod = 100 * time.Millisecond // TODO: need 100ms!!!
+	defaultContractABI = "../contract.abi"
+	defaultEventABI    = "../event.abi"
+	defaultDatabaseUrl = "postgres://test:test@localhost/test"
 )
 
 type ConfigFile struct {
@@ -74,9 +73,9 @@ type DatabaseFilters struct {
 }
 
 type DatabaseConfig struct {
-	url         string
-	queryPeriod time.Duration
-	filter      DatabaseFilters
+	url    string
+	filter DatabaseFilters
+	limit  uint // TODO: лимит количества записей надо бы убрать
 }
 
 type Config struct {
@@ -88,9 +87,8 @@ type Config struct {
 }
 
 func newConfig() *Config {
-
 	config := &Config{
-		db:            DatabaseConfig{defaultDatabaseUrl, defaultDatabaseQueryPeriod},
+		db:            DatabaseConfig{defaultDatabaseUrl, DatabaseFilters{nil, nil}, 100},
 		serverAddress: defaultAddr,
 		session:       SessionConfig{defaultWriteWait, defaultPongWait, defaultPingPeriod, defaultMaxMessageSize},
 		upgrader:      UpgraderConfig{defaultReadBufferSize, defaultWriteBufferSize},

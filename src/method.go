@@ -18,8 +18,9 @@ const (
 )
 
 type methodSubscribeParams struct {
-	Topic  string `json:"topic"`
-	Offset int    `json:"offset"`
+	Topic string `json:"topic"`
+	// Count  int    `json:"count"`
+	Offset int `json:"offset"`
 }
 
 func (p *methodSubscribeParams) isValid() bool {
@@ -30,6 +31,7 @@ func (p *methodSubscribeParams) execute(session *Session) (methodResult, error) 
 	methodLog.Debug("> subscribe",
 		zap.String("topic", p.Topic),
 		zap.Int("offset", p.Offset),
+		// zap.Int("count", p.Count),
 		zap.String("session.id", session.ID))
 
 	message := &ScraperSubscribeMessage{
@@ -39,7 +41,6 @@ func (p *methodSubscribeParams) execute(session *Session) (methodResult, error) 
 	}
 
 	session.setOffset(p.Offset)
-
 	session.scraper.subscribe <- message
 	response := <-message.response
 
