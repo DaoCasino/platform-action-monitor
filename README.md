@@ -68,3 +68,6 @@ scenarios:
 ```BASH
 $ artillery run loadtest.yml
 ```
+
+## Links
+[]byte and JSON https://stackoverflow.com/questions/34089750/go-marshal-byte-to-json-giving-a-strange-string

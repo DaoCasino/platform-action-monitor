@@ -2,10 +2,10 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/jackc/pgx/v4"
 	"go.uber.org/zap"
-	"strings"
 )
 
 type ScraperSubscribeMessage struct {
@@ -32,7 +32,6 @@ type ScraperResponseMessage struct {
 }
 
 type Scraper struct {
-	db                 *pgx.Conn
 	topics             map[string]map[*Session]bool
 	unsubscribeSession chan *Session
 	subscribe          chan *ScraperSubscribeMessage
@@ -40,9 +39,8 @@ type Scraper struct {
 	broadcast          chan *ScraperBroadcastMessage
 }
 
-func newScraper(db *pgx.Conn) *Scraper {
+func newScraper() *Scraper {
 	return &Scraper{
-		db:                 db,
 		topics:             make(map[string]map[*Session]bool),
 		subscribe:          make(chan *ScraperSubscribeMessage),
 		unsubscribe:        make(chan *ScraperUnsubscribeMessage),
@@ -52,14 +50,8 @@ func newScraper(db *pgx.Conn) *Scraper {
 }
 
 func (s *Scraper) run(done <-chan struct{}) {
-	notification := make(chan string)
-
-	if s.db != nil {
-		go listenNotify(s.db, notification)
-	}
 
 	defer func() {
-		close(notification)
 		scraperLog.Info("scraper stopped")
 	}()
 
@@ -69,9 +61,6 @@ func (s *Scraper) run(done <-chan struct{}) {
 		select {
 		case <-done:
 			return
-
-		case offset := <-notification:
-			scraperLog.Debug("pg notify", zap.String("offset", offset))
 
 		case session := <-s.unsubscribeSession:
 			for name, topicSessions := range s.topics {
@@ -130,7 +119,7 @@ func (s *Scraper) run(done <-chan struct{}) {
 		case message := <-s.broadcast:
 			scraperLog.Debug("broadcast",
 				zap.String("name", message.name),
-				zap.Binary("message", message.message),
+				zap.String("message", string(message.message)),
 			)
 			response := new(ScraperResponseMessage)
 
@@ -156,83 +145,73 @@ func (s *Scraper) run(done <-chan struct{}) {
 	}
 }
 
-func (s *Scraper) process() {
-	/*
-		1 надо слушать notify pg
-		2 надо расарсить запись act_data
-		3 надо отправить броадкаст по подписчикам
-	*/
+func (s *Scraper) handleNotify(conn *pgx.Conn, offset string, filter *DatabaseFilters) {
+	scraperLog.Debug("handleNotify", zap.String("offset", offset))
+
+	data, err := fetchActionData(conn, offset, nil) // TODO: s.filter!!!
+	switch err {
+	case nil:
+		// ok
+		// scraperLog.Debug("fetchActionData", zap.String("offset", offset), zap.Binary("data", data))
+
+		//// TODO: тут надо распарсить данные и послать их
+		//// Делаю вообще от балды надо еще тип еванта определить все распарись там
+
+		event := &EventMessage{offset, data}
+		response := newResponseMessage()
+		if err := response.setResult(event); err == nil {
+			if raw, err := json.Marshal(response); err == nil {
+
+				select {
+				case s.broadcast <- &ScraperBroadcastMessage{"notify", raw, nil}:
+				default:
+					return
+				}
+			}
+		}
+
+	case pgx.ErrNoRows:
+		scraperLog.Debug("no act_data with filter",
+			zap.Stringp("act_name", filter.actName),
+			zap.Stringp("act_account", filter.actAccount),
+		)
+	default:
+		scraperLog.Error("handleNotify SQL error", zap.Error(err))
+		return
+	}
 }
 
-func listenNotify(db *pgx.Conn, payload chan string) {
-	_, err := db.Exec(context.Background(), "listen new_action_trace")
-	if err != nil {
-		scraperLog.Fatal("error listening new_action_trace", zap.Error(err))
-	}
-
-	scraperLog.Debug("listenNotify start")
+func (s *Scraper) listen(conn *pgx.Conn, filter *DatabaseFilters, done <-chan struct{}) {
+	scraperLog.Debug("listen notify start")
 
 	defer func() {
-		scraperLog.Debug("listenNotify stop")
+		scraperLog.Debug("listen notify stop")
 	}()
 
+	_, err := conn.Exec(context.Background(), "listen new_action_trace")
+	if err != nil {
+		scraperLog.Error("error listening new_action_trace", zap.Error(err))
+		return
+	}
+
 	for {
-		notification, err := db.WaitForNotification(context.Background())
-		if err != nil {
-			scraperLog.Error("error listening new_action_trace", zap.Error(err))
-			return
-		}
-
-		scraperLog.Debug("notify",
-			zap.Uint32("PID", notification.PID),
-			zap.String("channel", notification.Channel),
-			zap.String("payload", notification.Payload),
-		)
-
 		select {
-		case payload <- notification.Payload:
-		default:
+		case <-done:
 			return
+		default:
+			notification, err := conn.WaitForNotification(context.Background())
+			if err != nil {
+				scraperLog.Error("error listening new_action_trace", zap.Error(err))
+				return
+			}
+
+			scraperLog.Debug("notify",
+				zap.Uint32("PID", notification.PID),
+				zap.String("channel", notification.Channel),
+				zap.String("payload", notification.Payload),
+			)
+
+			s.handleNotify(conn, notification.Payload, filter)
 		}
 	}
-}
-
-func getActionData(db *pgx.Conn, offset uint, count uint, filter *DatabaseFilters) ([][]byte, error) {
-	var whereParams []string
-
-	if filter != nil {
-		if filter.actAccount != nil {
-			whereParams = append(whereParams, fmt.Sprintf("act_account='%s'", *filter.actAccount))
-		}
-		if filter.actName != nil {
-			whereParams = append(whereParams, fmt.Sprintf("act_name='%s'", *filter.actName))
-		}
-	}
-
-	whereParams = append(whereParams, fmt.Sprintf("receipt_global_sequence >= %d", offset))
-
-	var where string
-	if len(whereParams) != 0 {
-		where = strings.Join(whereParams, " AND ")
-		scraperLog.Debug("getActionData", zap.String("where", where))
-	}
-
-	sql := fmt.Sprintf("SELECT act_data FROM chain.action_trace WHERE %s ORDER BY receipt_global_sequence ASC LIMIT %d", where, count)
-	scraperLog.Debug("getActionData", zap.String("sql", sql))
-
-	rows, _ := db.Query(context.Background(), sql)
-
-	result := make([][]byte, 0)
-
-	for rows.Next() {
-		var data []byte
-		err := rows.Scan(&data)
-		if err != nil {
-			return nil, err
-		}
-
-		result = append(result, data)
-	}
-
-	return result, rows.Err()
 }

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"github.com/jackc/pgx/v4"
 	"go.uber.org/zap"
 	"net/http"
 	"os"
@@ -11,7 +12,6 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/jackc/pgx/v4"
 )
 
 // context DeadLine timeout
@@ -32,7 +32,7 @@ func main() {
 		mainLog.Fatal("database connection", zap.Error(err))
 	}
 
-	scraper := newScraper(db)
+	scraper := newScraper()
 	manager := newSessionManager(&config.upgrader)
 
 	router := mux.NewRouter()
@@ -51,6 +51,7 @@ func main() {
 	idleConnectionClosed := make(chan struct{})
 	go manager.run(idleConnectionClosed)
 	go scraper.run(idleConnectionClosed)
+	go scraper.listen(db, &config.db.filter, idleConnectionClosed)
 
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {

@@ -6,7 +6,7 @@ import (
 
 func setupSessionTestCase(t *testing.T) (*Session, func(t *testing.T)) {
 	config := newConfig()
-	scraper := newScraper(nil)
+	scraper := newScraper()
 	manager := newSessionManager(&config.upgrader)
 	done := make(chan struct{})
 	go manager.run(done)

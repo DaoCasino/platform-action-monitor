@@ -19,6 +19,11 @@ type ResponseMessage struct {
 	Error  *ResponseErrorMessage `json:"error"`
 }
 
+type EventMessage struct {
+	Offset string `json:"offset"`
+	Data   []byte `json:"data"`
+}
+
 func (response *ResponseMessage) setResult(data interface{}) error {
 	byte1, err := json.Marshal(data)
 	if err == nil {
