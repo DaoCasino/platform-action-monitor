@@ -160,7 +160,7 @@ func (s *Scraper) handleNotify(conn *pgx.Conn, offset string, filter *DatabaseFi
 			if err := response.setResult(eventMessage); err == nil {
 				if raw, err := json.Marshal(response); err == nil {
 					select {
-					case s.broadcast <- &ScraperBroadcastMessage{"notify", raw, nil}:
+					case s.broadcast <- &ScraperBroadcastMessage{fmt.Sprintf("event_%d", event.EventType), raw, nil}:
 					default:
 						return
 					}
