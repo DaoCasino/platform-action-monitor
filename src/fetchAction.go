@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/jackc/pgx/v4"
-	"go.uber.org/zap"
 	"strings"
 )
 
@@ -26,7 +25,7 @@ func filterParams(params []string, filter *DatabaseFilters) []string {
 func prepareSql(whereParams []string, count uint) string {
 	where := strings.Join(whereParams, " AND ")
 	sql := fmt.Sprintf("SELECT act_data FROM chain.action_trace WHERE %s ORDER BY receipt_global_sequence ASC LIMIT %d", where, count)
-	scraperLog.Debug("prepareSql", zap.String("sql", sql))
+	// scraperLog.Debug("prepareSql", zap.String("sql", sql))
 	return sql
 }
 

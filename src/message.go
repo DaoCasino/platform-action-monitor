@@ -21,7 +21,7 @@ type ResponseMessage struct {
 
 type EventMessage struct {
 	Offset string `json:"offset"`
-	Data   []byte `json:"data"`
+	Event  *Event `json:"event"`
 }
 
 func (response *ResponseMessage) setResult(data interface{}) error {

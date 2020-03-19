@@ -32,6 +32,7 @@ type ScraperResponseMessage struct {
 }
 
 type Scraper struct {
+	abi                *AbiDecoder
 	topics             map[string]map[*Session]bool
 	unsubscribeSession chan *Session
 	subscribe          chan *ScraperSubscribeMessage
@@ -39,8 +40,9 @@ type Scraper struct {
 	broadcast          chan *ScraperBroadcastMessage
 }
 
-func newScraper() *Scraper {
+func newScraper(abi *AbiDecoder) *Scraper {
 	return &Scraper{
+		abi:                abi,
 		topics:             make(map[string]map[*Session]bool),
 		subscribe:          make(chan *ScraperSubscribeMessage),
 		unsubscribe:        make(chan *ScraperUnsubscribeMessage),
@@ -117,9 +119,9 @@ func (s *Scraper) run(done <-chan struct{}) {
 				close(message.response)
 			}
 		case message := <-s.broadcast:
-			scraperLog.Debug("broadcast",
+			scraperLog.Debug("send broadcast",
 				zap.String("name", message.name),
-				zap.String("message", string(message.message)),
+				zap.Any("message", json.RawMessage(message.message)),
 			)
 			response := new(ScraperResponseMessage)
 
@@ -148,28 +150,23 @@ func (s *Scraper) run(done <-chan struct{}) {
 func (s *Scraper) handleNotify(conn *pgx.Conn, offset string, filter *DatabaseFilters) {
 	scraperLog.Debug("handleNotify", zap.String("offset", offset))
 
-	data, err := fetchActionData(conn, offset, nil) // TODO: s.filter!!!
+	data, err := fetchActionData(conn, offset, filter)
 	switch err {
 	case nil:
 		// ok
-		// scraperLog.Debug("fetchActionData", zap.String("offset", offset), zap.Binary("data", data))
-
-		//// TODO: тут надо распарсить данные и послать их
-		//// Делаю вообще от балды надо еще тип еванта определить все распарись там
-
-		event := &EventMessage{offset, data}
-		response := newResponseMessage()
-		if err := response.setResult(event); err == nil {
-			if raw, err := json.Marshal(response); err == nil {
-
-				select {
-				case s.broadcast <- &ScraperBroadcastMessage{"notify", raw, nil}:
-				default:
-					return
+		if event, err := s.abi.Decode(data); err == nil {
+			eventMessage := &EventMessage{offset, event}
+			response := newResponseMessage()
+			if err := response.setResult(eventMessage); err == nil {
+				if raw, err := json.Marshal(response); err == nil {
+					select {
+					case s.broadcast <- &ScraperBroadcastMessage{"notify", raw, nil}:
+					default:
+						return
+					}
 				}
 			}
 		}
-
 	case pgx.ErrNoRows:
 		scraperLog.Debug("no act_data with filter",
 			zap.Stringp("act_name", filter.actName),

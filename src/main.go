@@ -27,12 +27,17 @@ func main() {
 
 	flag.Parse()
 
+	abiDecoder, err := newAbiDecoder(&config.abi)
+	if err != nil {
+		mainLog.Fatal("abi decoder error", zap.Error(err))
+	}
+
 	db, err := pgx.Connect(context.Background(), config.db.url)
 	if err != nil {
 		mainLog.Fatal("database connection", zap.Error(err))
 	}
 
-	scraper := newScraper()
+	scraper := newScraper(abiDecoder)
 	manager := newSessionManager(&config.upgrader)
 
 	router := mux.NewRouter()
