@@ -36,7 +36,7 @@ func main() {
 	}
 	registry.set(serviceAbiDecoder, abiDecoder)
 
-	db, err := pgx.Connect(context.Background(), config.db.url)
+	db, err := pgx.Connect(context.Background(), config.db.url) // TODO: нужен пулл соедениней разные потоки юзают бд conn busy пишет
 	if err != nil {
 		mainLog.Fatal("database connection", zap.Error(err))
 	}

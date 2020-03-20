@@ -1,5 +1,6 @@
 package main
 
+// TODO: очень плохая идея удалить!
 const (
 	serviceAbiDecoder     = "abiDecoder"
 	serviceConfig         = "config"
