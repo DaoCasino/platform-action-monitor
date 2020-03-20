@@ -15,7 +15,6 @@ type SessionManager struct {
 }
 
 func newSessionManager() *SessionManager {
-
 	upgrader = websocket.Upgrader{
 		ReadBufferSize:  config.upgrader.readBufferSize,
 		WriteBufferSize: config.upgrader.writeBufferSize,
@@ -30,7 +29,6 @@ func newSessionManager() *SessionManager {
 }
 
 func (s *SessionManager) run(done <-chan struct{}) {
-
 	defer func() {
 		for session := range s.sessions {
 			scraper.unsubscribeSession <- session

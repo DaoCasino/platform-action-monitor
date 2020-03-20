@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/jackc/pgx/v4"
 	"go.uber.org/zap"
+	"time"
 )
 
 type ScraperSubscribeMessage struct {
@@ -49,15 +50,12 @@ func newScraper() *Scraper {
 }
 
 func (s *Scraper) run(done <-chan struct{}) {
-	// TODO: get connection
-	//
-
 	defer func() {
 		scraperLog.Info("scraper stopped")
 	}()
-
 	scraperLog.Info("scraper started")
-	go s.listen(done)
+
+	go scraper.listen(done)
 
 	for {
 		select {
@@ -173,11 +171,11 @@ func (s *Scraper) listen(done <-chan struct{}) {
 	if err != nil {
 		scraperLog.Error("pool acquire connection error", zap.Error(err))
 	}
-	defer conn.Release()
 
 	scraperLog.Debug("listen notify start")
 
 	defer func() {
+		conn.Release()
 		scraperLog.Debug("listen notify stop")
 	}()
 
@@ -192,19 +190,18 @@ func (s *Scraper) listen(done <-chan struct{}) {
 		case <-done:
 			return
 		default:
-			notification, err := conn.Conn().WaitForNotification(context.Background())
-			if err != nil {
-				scraperLog.Error("error listening new_action_trace", zap.Error(err))
-				return
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			notification, err := conn.Conn().WaitForNotification(ctx)
+			if err == nil {
+				scraperLog.Debug("notify",
+					zap.Uint32("PID", notification.PID),
+					zap.String("channel", notification.Channel),
+					zap.String("payload", notification.Payload),
+				)
+				// TODO: доделать!!!
+				// s.handleNotify(conn.Conn(), notification.Payload, &config.db.filter)
 			}
-
-			scraperLog.Debug("notify",
-				zap.Uint32("PID", notification.PID),
-				zap.String("channel", notification.Channel),
-				zap.String("payload", notification.Payload),
-			)
-
-			s.handleNotify(conn.Conn(), notification.Payload, &config.db.filter)
+			cancel()
 		}
 	}
 }
