@@ -18,6 +18,7 @@ type Decoder struct {
 }
 
 type Event struct {
+	Offset    string          `json:"offset"`
 	Sender    string          `json:"sender"`
 	CasinoID  string          `json:"casino_id"`
 	GameID    string          `json:"game_id"`

@@ -155,7 +155,11 @@ func (s *Scraper) handleNotify(conn *pgx.Conn, offset string, filter *DatabaseFi
 	case nil:
 		// ok
 		if event, err := s.abi.Decode(data); err == nil {
-			eventMessage := &EventMessage{offset, event}
+			event.Offset = offset
+
+			eventMessage := &EventMessage{offset, make([]*Event, 1)}
+			eventMessage.Events[0] = event
+
 			response := newResponseMessage()
 			if err := response.setResult(eventMessage); err == nil {
 				if raw, err := json.Marshal(response); err == nil {

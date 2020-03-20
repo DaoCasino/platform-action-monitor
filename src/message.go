@@ -20,8 +20,8 @@ type ResponseMessage struct {
 }
 
 type EventMessage struct {
-	Offset string `json:"offset"`
-	Event  *Event `json:"event"`
+	Offset string   `json:"offset"` // last event.offset
+	Events []*Event `json:"events"`
 }
 
 func (response *ResponseMessage) setResult(data interface{}) error {
