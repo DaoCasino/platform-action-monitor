@@ -18,12 +18,12 @@ type Decoder struct {
 }
 
 type Event struct {
-	Sender    string `json:"sender"`
-	CasinoID  string `json:"casino_id"`
-	GameID    string `json:"game_id"`
-	RequestID string `json:"req_id"`
-	EventType int    `json:"event_type"`
-	Data      []byte `json:"data"` // TODO: неизвестно корректный ли это тип или надо json.rawMessage
+	Sender    string          `json:"sender"`
+	CasinoID  string          `json:"casino_id"`
+	GameID    string          `json:"game_id"`
+	RequestID string          `json:"req_id"`
+	EventType int             `json:"event_type"`
+	Data      json.RawMessage `json:"data"`
 }
 
 type AbiDecoder struct {
@@ -112,7 +112,6 @@ func (a *AbiDecoder) decodeEventData(event int, data []byte) ([]byte, error) {
 	return a.events[event].decodeStruct(data, defaultEventStructName)
 }
 
-// TODO: дописать как появятся данные
 func (a *AbiDecoder) Decode(data []byte) (*Event, error) {
 	event, err := a.decodeEvent(data)
 	if err != nil {
