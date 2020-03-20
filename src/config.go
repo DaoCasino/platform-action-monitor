@@ -87,7 +87,7 @@ type Config struct {
 
 func newConfig() *Config {
 	config := &Config{
-		db:            DatabaseConfig{defaultDatabaseUrl, DatabaseFilters{nil, nil}, 100},
+		db:            DatabaseConfig{defaultDatabaseUrl, DatabaseFilters{nil, nil}},
 		serverAddress: defaultAddr,
 		session:       SessionConfig{defaultWriteWait, defaultPongWait, defaultPingPeriod, defaultMaxMessageSize},
 		upgrader:      UpgraderConfig{defaultReadBufferSize, defaultWriteBufferSize},

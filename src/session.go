@@ -23,7 +23,7 @@ type Session struct {
 	ID     string
 	offset string
 
-	registry *Registry
+	scraper *Scraper
 
 	// The websocket connection.
 	conn *websocket.Conn
@@ -37,13 +37,13 @@ type Session struct {
 
 //func newSession(config *SessionConfig, scraper *Scraper, manager *SessionManager, conn *websocket.Conn) *Session {
 
-func newSession(registry *Registry, conn *websocket.Conn) *Session {
+func newSession(scraper *Scraper, conn *websocket.Conn) *Session {
 	ID := cuid.New()
 	sessionLog.Debug("new session", zap.String("ID", ID))
 
 	return &Session{
 		ID:                    ID,
-		registry:              registry,
+		scraper:               scraper,
 		conn:                  conn,
 		send:                  make(chan []byte, 512),
 		queue:                 make(chan *Event, 32),
@@ -58,11 +58,8 @@ func (s *Session) setOffset(offset string) {
 
 func (s *Session) readPump() {
 
-	manager := s.registry.get(serviceSessionManager).(*SessionManager)
-	config := s.registry.get(serviceConfig).(*Config)
-
 	defer func() {
-		manager.unregister <- s
+		sessionManager.unregister <- s
 		if err := s.conn.Close(); err != nil {
 			// sessionLog.Error("connection close error", zap.String("session.id", s.ID), zap.Error(err))
 		}
@@ -90,8 +87,6 @@ func (s *Session) readPump() {
 }
 
 func (s *Session) writePump() {
-	config := s.registry.get(serviceConfig).(*Config)
-
 	ticker := time.NewTicker(config.session.pingPeriod)
 	defer func() {
 		ticker.Stop()

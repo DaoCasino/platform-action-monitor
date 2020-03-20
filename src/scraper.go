@@ -31,7 +31,6 @@ type ScraperResponseMessage struct {
 }
 
 type Scraper struct {
-	fetchEvent         *FetchEvent
 	topics             map[string]map[*Session]bool
 	unsubscribeSession chan *Session
 	subscribe          chan *ScraperSubscribeMessage
@@ -39,11 +38,8 @@ type Scraper struct {
 	broadcast          chan *ScraperBroadcastMessage
 }
 
-func newScraper(registry *Registry) *Scraper {
-	fetchEvent := registry.get(serviceFetchEvent).(*FetchEvent)
-
+func newScraper() *Scraper {
 	return &Scraper{
-		fetchEvent:         fetchEvent,
 		topics:             make(map[string]map[*Session]bool),
 		subscribe:          make(chan *ScraperSubscribeMessage),
 		unsubscribe:        make(chan *ScraperUnsubscribeMessage),
@@ -53,11 +49,15 @@ func newScraper(registry *Registry) *Scraper {
 }
 
 func (s *Scraper) run(done <-chan struct{}) {
+	// TODO: get connection
+	//
+
 	defer func() {
 		scraperLog.Info("scraper stopped")
 	}()
 
 	scraperLog.Info("scraper started")
+	go s.listen(done)
 
 	for {
 		select {
@@ -168,14 +168,20 @@ func (s *Scraper) handleNotify(conn *pgx.Conn, offset string, filter *DatabaseFi
 	//}
 }
 
-func (s *Scraper) listen(conn *pgx.Conn, filter *DatabaseFilters, done <-chan struct{}) {
+func (s *Scraper) listen(done <-chan struct{}) {
+	conn, err := pool.Acquire(context.Background())
+	if err != nil {
+		scraperLog.Error("pool acquire connection error", zap.Error(err))
+	}
+	defer conn.Release()
+
 	scraperLog.Debug("listen notify start")
 
 	defer func() {
 		scraperLog.Debug("listen notify stop")
 	}()
 
-	_, err := conn.Exec(context.Background(), "listen new_action_trace")
+	_, err = conn.Exec(context.Background(), "listen new_action_trace")
 	if err != nil {
 		scraperLog.Error("error listening new_action_trace", zap.Error(err))
 		return
@@ -186,7 +192,7 @@ func (s *Scraper) listen(conn *pgx.Conn, filter *DatabaseFilters, done <-chan st
 		case <-done:
 			return
 		default:
-			notification, err := conn.WaitForNotification(context.Background())
+			notification, err := conn.Conn().WaitForNotification(context.Background())
 			if err != nil {
 				scraperLog.Error("error listening new_action_trace", zap.Error(err))
 				return
@@ -198,7 +204,7 @@ func (s *Scraper) listen(conn *pgx.Conn, filter *DatabaseFilters, done <-chan st
 				zap.String("payload", notification.Payload),
 			)
 
-			s.handleNotify(conn, notification.Payload, filter)
+			s.handleNotify(conn.Conn(), notification.Payload, &config.db.filter)
 		}
 	}
 }

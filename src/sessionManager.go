@@ -14,8 +14,7 @@ type SessionManager struct {
 	unregister chan *Session
 }
 
-func newSessionManager(registry *Registry) *SessionManager {
-	config := registry.get(serviceConfig).(*Config)
+func newSessionManager() *SessionManager {
 
 	upgrader = websocket.Upgrader{
 		ReadBufferSize:  config.upgrader.readBufferSize,
@@ -34,7 +33,6 @@ func (s *SessionManager) run(done <-chan struct{}) {
 
 	defer func() {
 		for session := range s.sessions {
-			scraper := session.registry.get(serviceScraper).(*Scraper)
 			scraper.unsubscribeSession <- session
 
 			delete(s.sessions, session)
@@ -53,7 +51,6 @@ func (s *SessionManager) run(done <-chan struct{}) {
 			s.sessions[session] = true
 		case session := <-s.unregister:
 			if _, ok := s.sessions[session]; ok {
-				scraper := session.registry.get(serviceScraper).(*Scraper)
 				scraper.unsubscribeSession <- session
 
 				delete(s.sessions, session)
@@ -63,17 +60,15 @@ func (s *SessionManager) run(done <-chan struct{}) {
 	}
 }
 
-func serveWs(registry *Registry, w http.ResponseWriter, r *http.Request) {
+func serveWs(scraper *Scraper, w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		sessionLog.Error("upgrade", zap.Error(err))
 		return
 	}
 
-	session := newSession(registry, conn)
-
-	manager := registry.get(serviceSessionManager).(*SessionManager)
-	manager.register <- session
+	session := newSession(scraper, conn)
+	sessionManager.register <- session
 
 	// Allow collection of memory referenced by the caller by doing all work in
 	// new goroutines.

@@ -35,7 +35,6 @@ func (p *methodSubscribeParams) execute(session *Session) (methodResult, error) 
 		// zap.Int("count", p.Count),
 		zap.String("session.id", session.ID))
 
-	scraper := session.registry.get(serviceScraper).(*Scraper)
 	message := &ScraperSubscribeMessage{
 		name:     p.Topic,
 		session:  session,
@@ -51,31 +50,33 @@ func (p *methodSubscribeParams) execute(session *Session) (methodResult, error) 
 func (p *methodSubscribeParams) after(session *Session) {
 	methodLog.Debug("after subscribe init send messages offset")
 
-	fetchEvent := session.registry.get(serviceFetchEvent).(*FetchEvent)
+	// TODO: надо в сессии хранить коннект к базе или получать  его из пула
 
-	events, err := fetchEvent.fetchAll(p.Offset, 0)
-	if err != nil {
-		methodLog.Error("fetch all events error", zap.Error(err))
-		return
-	}
-
-	// TODO: надо сделать фильтр по типу топика и посылать только те что надо
-	var eventMessage []byte
-	eventMessage, err = newEventMessage(events)
-	if err != nil {
-		methodLog.Error("error create eventMessage", zap.Error(err))
-		return
-	}
-
-	select {
-	case session.send <- eventMessage:
-	default:
-		methodLog.Error("error send eventMessage")
-		return
-	}
-
-	session.setOffset(events[len(events)-1].Offset)
-	close(session.idleOpenQueueMessages)
+	//fetchEvent := session.registry.get(serviceFetchEvent).(*FetchEvent)
+	//
+	//events, err := fetchEvent.fetchAll(p.Offset, 0)
+	//if err != nil {
+	//	methodLog.Error("fetch all events error", zap.Error(err))
+	//	return
+	//}
+	//
+	//// TODO: надо сделать фильтр по типу топика и посылать только те что надо
+	//var eventMessage []byte
+	//eventMessage, err = newEventMessage(events)
+	//if err != nil {
+	//	methodLog.Error("error create eventMessage", zap.Error(err))
+	//	return
+	//}
+	//
+	//select {
+	//case session.send <- eventMessage:
+	//default:
+	//	methodLog.Error("error send eventMessage")
+	//	return
+	//}
+	//
+	//session.setOffset(events[len(events)-1].Offset)
+	//close(session.idleOpenQueueMessages)
 }
 
 type methodUnsubscribeParams struct {
@@ -88,8 +89,6 @@ func (p *methodUnsubscribeParams) isValid() bool {
 
 func (p *methodUnsubscribeParams) execute(session *Session) (methodResult, error) {
 	methodLog.Debug("> unsubscribe", zap.String("topic", p.Topic), zap.String("session.id", session.ID))
-
-	scraper := session.registry.get(serviceScraper).(*Scraper)
 
 	message := &ScraperUnsubscribeMessage{
 		name:     p.Topic,

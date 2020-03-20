@@ -6,34 +6,20 @@ import (
 	"log"
 )
 
-//
-type FetchEvent struct { // TODO: надо для расшифровки данных из бд
-	abi    *AbiDecoder
-	conn   *pgx.Conn
-	filter *DatabaseFilters
-}
-
-func newFetchEvent(registry *Registry) *FetchEvent {
-	abi := registry.get("abiDecoder").(*AbiDecoder)
-	conn := registry.get("db").(*pgx.Conn)
-	config := registry.get("config").(*Config)
-
-	return &FetchEvent{abi, conn, &config.db.filter}
-}
-
-func (f *FetchEvent) fetch(offset string) (*Event, error) {
-	rows, err := fetchActionData(f.conn, offset, f.filter)
+func fetchEvent(conn *pgx.Conn, offset string) (*Event, error) {
+	filter := config.db.filter
+	rows, err := fetchActionData(conn, offset, &filter)
 	switch err {
 	case nil:
 		// ok
-		if event, err := f.abi.Decode(rows.actData); err == nil {
+		if event, err := abiDecoder.Decode(rows.actData); err == nil {
 			// event.Offset = rows.offset TODO: !!!! надо!!
 			return event, nil
 		}
 	case pgx.ErrNoRows:
 		scraperLog.Debug("no act_data with filter",
-			zap.Stringp("act_name", f.filter.actName),
-			zap.Stringp("act_account", f.filter.actAccount),
+			zap.Stringp("act_name", filter.actName),
+			zap.Stringp("act_account", filter.actAccount),
 		)
 	default:
 		scraperLog.Error("handleNotify SQL error", zap.Error(err))
@@ -42,9 +28,10 @@ func (f *FetchEvent) fetch(offset string) (*Event, error) {
 	return nil, err
 }
 
-func (f *FetchEvent) fetchAll(offset string, count uint) ([]*Event, error) {
+func fetchAllEvents(conn *pgx.Conn, offset string, count uint) ([]*Event, error) {
+	filter := config.db.filter
 	events := make([]*Event, 0)
-	dataset, err := fetchAllActionData(f.conn, offset, count, f.filter)
+	dataset, err := fetchAllActionData(conn, offset, count, &filter)
 	if err != nil {
 		return nil, err
 	}
@@ -52,7 +39,7 @@ func (f *FetchEvent) fetchAll(offset string, count uint) ([]*Event, error) {
 	log.Printf("%+v", dataset)
 
 	for _, data := range dataset {
-		if event, err := f.abi.Decode(data.actData); err == nil {
+		if event, err := abiDecoder.Decode(data.actData); err == nil {
 			// event.Offset = data.offset  TODO: !!!! надо
 			events = append(events, event)
 		}
