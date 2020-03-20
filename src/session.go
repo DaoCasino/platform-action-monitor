@@ -10,9 +10,18 @@ import (
 	"github.com/lucsky/cuid"
 )
 
+type Queue struct {
+	isOpen bool
+	events []*Event
+}
+
+func newQueue() *Queue {
+	return &Queue{false, make([]*Event, 0)}
+}
+
 type Session struct {
 	ID     string
-	offset int
+	offset string
 
 	config  *SessionConfig
 	scraper *Scraper
@@ -22,7 +31,10 @@ type Session struct {
 	conn *websocket.Conn
 
 	// Buffered channel of outbound messages.
-	send chan []byte
+	send                  chan []byte
+	queue                 chan *Event
+	queueMessages         *Queue
+	idleOpenQueueMessages chan struct{}
 }
 
 func newSession(config *SessionConfig, scraper *Scraper, manager *SessionManager, conn *websocket.Conn) *Session {
@@ -30,15 +42,19 @@ func newSession(config *SessionConfig, scraper *Scraper, manager *SessionManager
 	sessionLog.Debug("new session", zap.String("ID", ID))
 
 	return &Session{
-		ID:      ID,
-		config:  config,
-		scraper: scraper,
-		manager: manager,
-		conn:    conn,
-		send:    make(chan []byte, 512)}
+		ID:                    ID,
+		config:                config,
+		scraper:               scraper,
+		manager:               manager,
+		conn:                  conn,
+		send:                  make(chan []byte, 512),
+		queue:                 make(chan *Event, 32),
+		queueMessages:         newQueue(),
+		idleOpenQueueMessages: make(chan struct{}),
+	}
 }
 
-func (s *Session) setOffset(offset int) {
+func (s *Session) setOffset(offset string) {
 	s.offset = offset
 }
 
@@ -80,6 +96,18 @@ func (s *Session) writePump() {
 	}()
 	for {
 		select {
+		case event := <-s.queue:
+			sessionLog.Debug("add event in queue", zap.String("session.id", s.ID), zap.String("event.offset", event.Offset))
+			// TODO: !!!! доедлатьяс
+			//s.queueMessages.events[event.Offset]=event
+			//if s.queueMessages.isOpen {
+			//	s.sendQueueMessages()
+			//}
+
+		case <-s.idleOpenQueueMessages:
+			s.queueMessages.isOpen = true
+			s.sendQueueMessages()
+
 		case message, ok := <-s.send:
 			_ = s.conn.SetWriteDeadline(time.Now().Add(s.config.writeWait))
 			if !ok {
@@ -151,6 +179,11 @@ func parseRequest(message []byte, response *ResponseMessage) (methodExecutor, er
 
 func (s *Session) process(message []byte) error {
 	response := newResponseMessage()
+	method, err := parseRequest(message, response)
+	if err != nil {
+		return err
+	}
+
 	defer func() {
 		raw, err := json.Marshal(response)
 		if err != nil {
@@ -158,12 +191,9 @@ func (s *Session) process(message []byte) error {
 			return
 		}
 		s.send <- raw
-	}()
 
-	method, err := parseRequest(message, response)
-	if err != nil {
-		return err
-	}
+		method.after(s)
+	}()
 
 	result, err := method.execute(s)
 	if err != nil {
@@ -190,3 +220,28 @@ func (s *Session) process(message []byte) error {
 
 	return nil
 }
+
+func (s *Session) sendQueueMessages() {
+	sessionLog.Debug("sendQueueMessages start")
+
+}
+
+func newEventMessage(events []*Event) ([]byte, error) {
+	response := newResponseMessage()
+	err := response.setResult(&EventMessage{events[len(events)-1].Offset, events})
+	if err != nil {
+		return nil, err
+	}
+
+	return json.Marshal(response)
+}
+
+//
+//func (s *Session) init(conn *pgx.Conn, filter *DatabaseFilters) error {
+//	rows, err := fetchAllActionData(conn, s.offset, 0, filter)
+//	if err != nil {
+//		return err
+//	}
+//
+//
+//}

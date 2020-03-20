@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"github.com/jackc/pgx/v4"
 	"go.uber.org/zap"
@@ -22,7 +21,7 @@ type ScraperUnsubscribeMessage struct {
 
 type ScraperBroadcastMessage struct {
 	name     string
-	message  []byte
+	event    *Event
 	response chan *ScraperResponseMessage
 }
 
@@ -32,7 +31,7 @@ type ScraperResponseMessage struct {
 }
 
 type Scraper struct {
-	abi                *AbiDecoder
+	fetchEvent         *FetchEvent
 	topics             map[string]map[*Session]bool
 	unsubscribeSession chan *Session
 	subscribe          chan *ScraperSubscribeMessage
@@ -40,9 +39,11 @@ type Scraper struct {
 	broadcast          chan *ScraperBroadcastMessage
 }
 
-func newScraper(abi *AbiDecoder) *Scraper {
+func newScraper(registry *Registry) *Scraper {
+	fetchEvent := registry.get(serviceFetchEvent).(*FetchEvent)
+
 	return &Scraper{
-		abi:                abi,
+		fetchEvent:         fetchEvent,
 		topics:             make(map[string]map[*Session]bool),
 		subscribe:          make(chan *ScraperSubscribeMessage),
 		unsubscribe:        make(chan *ScraperUnsubscribeMessage),
@@ -52,7 +53,6 @@ func newScraper(abi *AbiDecoder) *Scraper {
 }
 
 func (s *Scraper) run(done <-chan struct{}) {
-
 	defer func() {
 		scraperLog.Info("scraper stopped")
 	}()
@@ -121,17 +121,12 @@ func (s *Scraper) run(done <-chan struct{}) {
 		case message := <-s.broadcast:
 			scraperLog.Debug("send broadcast",
 				zap.String("name", message.name),
-				zap.Any("message", json.RawMessage(message.message)),
 			)
 			response := new(ScraperResponseMessage)
 
 			if topicClients, ok := s.topics[message.name]; ok {
 				for clientSession := range topicClients {
-					select {
-					case clientSession.send <- message.message:
-					default:
-						s.unsubscribeSession <- clientSession
-					}
+					clientSession.queue <- message.event
 				}
 				response.result = true
 			} else {
@@ -150,36 +145,27 @@ func (s *Scraper) run(done <-chan struct{}) {
 func (s *Scraper) handleNotify(conn *pgx.Conn, offset string, filter *DatabaseFilters) {
 	scraperLog.Debug("handleNotify", zap.String("offset", offset))
 
-	data, err := fetchActionData(conn, offset, filter)
-	switch err {
-	case nil:
-		// ok
-		if event, err := s.abi.Decode(data); err == nil {
-			event.Offset = offset
+	// TODO: !!! расскоментируй доделай!!
 
-			eventMessage := &EventMessage{offset, make([]*Event, 1)}
-			eventMessage.Events[0] = event
+	// event, err := fetch
 
-			response := newResponseMessage()
-			if err := response.setResult(eventMessage); err == nil {
-				if raw, err := json.Marshal(response); err == nil {
-					select {
-					case s.broadcast <- &ScraperBroadcastMessage{fmt.Sprintf("event_%d", event.EventType), raw, nil}:
-					default:
-						return
-					}
-				}
-			}
-		}
-	case pgx.ErrNoRows:
-		scraperLog.Debug("no act_data with filter",
-			zap.Stringp("act_name", filter.actName),
-			zap.Stringp("act_account", filter.actAccount),
-		)
-	default:
-		scraperLog.Error("handleNotify SQL error", zap.Error(err))
-		return
-	}
+	//data, err := fetchActionData(conn, offset, filter)
+	//switch err {
+	//case nil:
+	//	// ok
+	//	if event, err := s.abi.Decode(data); err == nil {
+	//		event.Offset = offset
+	//		s.broadcast <- &ScraperBroadcastMessage{fmt.Sprintf("event_%d", event.EventType), event, nil}
+	//	}
+	//case pgx.ErrNoRows:
+	//	scraperLog.Debug("no act_data with filter",
+	//		zap.Stringp("act_name", filter.actName),
+	//		zap.Stringp("act_account", filter.actAccount),
+	//	)
+	//default:
+	//	scraperLog.Error("handleNotify SQL error", zap.Error(err))
+	//	return
+	//}
 }
 
 func (s *Scraper) listen(conn *pgx.Conn, filter *DatabaseFilters, done <-chan struct{}) {

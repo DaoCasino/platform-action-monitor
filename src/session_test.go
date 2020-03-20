@@ -5,9 +5,22 @@ import (
 )
 
 func setupSessionTestCase(t *testing.T) (*Session, func(t *testing.T)) {
+	registry := newRegistry()
 	config := newConfig()
-	scraper := newScraper()
-	manager := newSessionManager(&config.upgrader)
+	registry.set(serviceConfig, config)
+
+	abiDecoder, err := newAbiDecoder(&config.abi)
+	if err != nil {
+		t.Fatal("abi decoder error", err)
+	}
+	registry.set(serviceAbiDecoder, abiDecoder)
+	registry.set(serviceDatabase, nil)
+
+	fetchEvent := newFetchEvent(registry)
+	registry.set(serviceFetchEvent, fetchEvent)
+
+	scraper := newScraper(registry)
+	manager := newSessionManager(registry)
 	done := make(chan struct{})
 	go manager.run(done)
 	t.Log("session manager running")

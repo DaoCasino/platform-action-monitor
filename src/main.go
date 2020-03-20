@@ -18,7 +18,10 @@ import (
 const withTimeout = 5 * time.Second
 
 func main() {
+	registry := newRegistry()
 	config := newConfig()
+
+	registry.set(serviceConfig, config)
 
 	// TODO: delete!
 	logger := newLogger(false)
@@ -31,14 +34,22 @@ func main() {
 	if err != nil {
 		mainLog.Fatal("abi decoder error", zap.Error(err))
 	}
+	registry.set(serviceAbiDecoder, abiDecoder)
 
 	db, err := pgx.Connect(context.Background(), config.db.url)
 	if err != nil {
 		mainLog.Fatal("database connection", zap.Error(err))
 	}
+	registry.set(serviceDatabase, db)
 
-	scraper := newScraper(abiDecoder)
-	manager := newSessionManager(&config.upgrader)
+	fetchEvent := newFetchEvent(registry)
+	registry.set(serviceFetchEvent, fetchEvent)
+
+	scraper := newScraper(registry)
+	registry.set("scraper", scraper)
+
+	manager := newSessionManager(registry)
+	registry.set("manager", manager)
 
 	router := mux.NewRouter()
 	router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {

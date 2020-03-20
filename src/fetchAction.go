@@ -7,6 +7,11 @@ import (
 	"strings"
 )
 
+type ActionTraceRows struct {
+	actData []byte
+	offset  uint64
+}
+
 func filterParams(params []string, filter *DatabaseFilters) []string {
 	if filter == nil {
 		return params
@@ -24,21 +29,25 @@ func filterParams(params []string, filter *DatabaseFilters) []string {
 
 func prepareSql(whereParams []string, count uint) string {
 	where := strings.Join(whereParams, " AND ")
-	sql := fmt.Sprintf("SELECT act_data FROM chain.action_trace WHERE %s ORDER BY receipt_global_sequence ASC LIMIT %d", where, count)
+	sql := fmt.Sprintf("SELECT act_data, receipt_global_sequence AS offset FROM chain.action_trace WHERE %s ORDER BY receipt_global_sequence ASC", where)
+	if count != 0 {
+		sql += fmt.Sprintf(" LIMIT %d", count)
+	}
 	// scraperLog.Debug("prepareSql", zap.String("sql", sql))
 	return sql
 }
 
-func fetchActionData(db *pgx.Conn, offset string, filter *DatabaseFilters) (data []byte, err error) {
+func fetchActionData(db *pgx.Conn, offset string, filter *DatabaseFilters) (*ActionTraceRows, error) {
 	whereParams := []string{fmt.Sprintf("receipt_global_sequence = %s", offset)}
 	whereParams = filterParams(whereParams, filter)
 
 	sql := prepareSql(whereParams, 1)
-	err = db.QueryRow(context.Background(), sql).Scan(&data)
-	return
+	rows := new(ActionTraceRows)
+	err := db.QueryRow(context.Background(), sql).Scan(&rows.actData, &rows.offset)
+	return rows, err
 }
 
-func fetchAllActionData(db *pgx.Conn, offset string, count uint, filter *DatabaseFilters) ([][]byte, error) {
+func fetchAllActionData(db *pgx.Conn, offset string, count uint, filter *DatabaseFilters) ([]*ActionTraceRows, error) {
 	whereParams := []string{fmt.Sprintf("receipt_global_sequence >= %s", offset)}
 	whereParams = filterParams(whereParams, filter)
 
@@ -46,11 +55,11 @@ func fetchAllActionData(db *pgx.Conn, offset string, count uint, filter *Databas
 
 	rows, _ := db.Query(context.Background(), sql)
 
-	result := make([][]byte, 0)
+	result := make([]*ActionTraceRows, 0)
 
 	for rows.Next() {
-		var data []byte
-		err := rows.Scan(&data)
+		data := new(ActionTraceRows)
+		err := rows.Scan(&data.actData, &data.offset)
 		if err != nil {
 			return nil, err
 		}

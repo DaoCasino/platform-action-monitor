@@ -14,11 +14,12 @@ type SessionManager struct {
 	unregister chan *Session
 }
 
-func newSessionManager(config *UpgraderConfig) *SessionManager {
+func newSessionManager(registry *Registry) *SessionManager {
+	config := registry.get(serviceConfig).(*Config)
 
 	upgrader = websocket.Upgrader{
-		ReadBufferSize:  config.readBufferSize,
-		WriteBufferSize: config.writeBufferSize,
+		ReadBufferSize:  config.upgrader.readBufferSize,
+		WriteBufferSize: config.upgrader.writeBufferSize,
 		CheckOrigin:     func(r *http.Request) bool { return true },
 	}
 
