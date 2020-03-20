@@ -87,7 +87,6 @@ func main() {
 
 	ctx, cancel := context.WithTimeout(context.Background(), withTimeout)
 	defer func() {
-		//TODO: Close database, redis, truncate message queues, etc.
 		db.Close(context.Background())
 		registry.clean()
 

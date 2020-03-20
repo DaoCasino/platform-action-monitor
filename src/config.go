@@ -75,7 +75,6 @@ type DatabaseFilters struct {
 type DatabaseConfig struct {
 	url    string
 	filter DatabaseFilters
-	limit  uint // TODO: лимит количества записей надо бы убрать
 }
 
 type Config struct {

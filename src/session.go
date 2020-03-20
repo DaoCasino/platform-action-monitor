@@ -230,16 +230,6 @@ func (s *Session) sendQueueMessages() {
 
 }
 
-func newEventMessage(events []*Event) ([]byte, error) {
-	response := newResponseMessage()
-	err := response.setResult(&EventMessage{events[len(events)-1].Offset, events})
-	if err != nil {
-		return nil, err
-	}
-
-	return json.Marshal(response)
-}
-
 //
 //func (s *Session) init(conn *pgx.Conn, filter *DatabaseFilters) error {
 //	rows, err := fetchAllActionData(conn, s.offset, 0, filter)

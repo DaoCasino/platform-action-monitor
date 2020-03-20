@@ -47,7 +47,6 @@ func TestDecodeStruct(t *testing.T) {
 	assert.Equal(t, decodeBytes, []byte(`{"b":2,"a":1}`))
 }
 
-// TODO: full event act_data in binary ??? event.Data type ???
 func TestAbiDecoder(t *testing.T) {
 	config := newConfig()
 	_, err := newAbiDecoder(&config.abi)

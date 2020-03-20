@@ -43,6 +43,7 @@ func fetchActionData(db *pgx.Conn, offset string, filter *DatabaseFilters) (*Act
 
 	sql := prepareSql(whereParams, 1)
 	rows := new(ActionTraceRows)
+
 	err := db.QueryRow(context.Background(), sql).Scan(&rows.actData, &rows.offset)
 	return rows, err
 }
@@ -54,6 +55,7 @@ func fetchAllActionData(db *pgx.Conn, offset string, count uint, filter *Databas
 	sql := prepareSql(whereParams, count)
 
 	rows, _ := db.Query(context.Background(), sql)
+	defer rows.Close() // TODO: !!! conn busy !!! не работает нихрена надо пул коннектов делать
 
 	result := make([]*ActionTraceRows, 0)
 

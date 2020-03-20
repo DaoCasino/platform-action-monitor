@@ -49,9 +49,33 @@ func (p *methodSubscribeParams) execute(session *Session) (methodResult, error) 
 }
 
 func (p *methodSubscribeParams) after(session *Session) {
-	methodLog.Debug("after subscribe")
-	// TODO: uncomment
-	// close(session.idleOpenQueueMessages)
+	methodLog.Debug("after subscribe init send messages offset")
+
+	fetchEvent := session.registry.get(serviceFetchEvent).(*FetchEvent)
+
+	events, err := fetchEvent.fetchAll(p.Offset, 0)
+	if err != nil {
+		methodLog.Error("fetch all events error", zap.Error(err))
+		return
+	}
+
+	// TODO: надо сделать фильтр по типу топика и посылать только те что надо
+	var eventMessage []byte
+	eventMessage, err = newEventMessage(events)
+	if err != nil {
+		methodLog.Error("error create eventMessage", zap.Error(err))
+		return
+	}
+
+	select {
+	case session.send <- eventMessage:
+	default:
+		methodLog.Error("error send eventMessage")
+		return
+	}
+
+	session.setOffset(events[len(events)-1].Offset)
+	close(session.idleOpenQueueMessages)
 }
 
 type methodUnsubscribeParams struct {
