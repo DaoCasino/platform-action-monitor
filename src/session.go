@@ -23,9 +23,7 @@ type Session struct {
 	ID     string
 	offset string
 
-	config  *SessionConfig
-	scraper *Scraper
-	manager *SessionManager
+	registry *Registry
 
 	// The websocket connection.
 	conn *websocket.Conn
@@ -37,15 +35,15 @@ type Session struct {
 	idleOpenQueueMessages chan struct{}
 }
 
-func newSession(config *SessionConfig, scraper *Scraper, manager *SessionManager, conn *websocket.Conn) *Session {
+//func newSession(config *SessionConfig, scraper *Scraper, manager *SessionManager, conn *websocket.Conn) *Session {
+
+func newSession(registry *Registry, conn *websocket.Conn) *Session {
 	ID := cuid.New()
 	sessionLog.Debug("new session", zap.String("ID", ID))
 
 	return &Session{
 		ID:                    ID,
-		config:                config,
-		scraper:               scraper,
-		manager:               manager,
+		registry:              registry,
 		conn:                  conn,
 		send:                  make(chan []byte, 512),
 		queue:                 make(chan *Event, 32),
@@ -59,8 +57,12 @@ func (s *Session) setOffset(offset string) {
 }
 
 func (s *Session) readPump() {
+
+	manager := s.registry.get(serviceSessionManager).(*SessionManager)
+	config := s.registry.get(serviceConfig).(*Config)
+
 	defer func() {
-		s.manager.unregister <- s
+		manager.unregister <- s
 		if err := s.conn.Close(); err != nil {
 			// sessionLog.Error("connection close error", zap.String("session.id", s.ID), zap.Error(err))
 		}
@@ -68,9 +70,9 @@ func (s *Session) readPump() {
 		sessionLog.Debug("readPump close", zap.String("session.id", s.ID))
 	}()
 
-	s.conn.SetReadLimit(s.config.maxMessageSize)
-	s.conn.SetReadDeadline(time.Now().Add(s.config.pongWait))
-	s.conn.SetPongHandler(func(string) error { s.conn.SetReadDeadline(time.Now().Add(s.config.pongWait)); return nil })
+	s.conn.SetReadLimit(config.session.maxMessageSize)
+	s.conn.SetReadDeadline(time.Now().Add(config.session.pongWait))
+	s.conn.SetPongHandler(func(string) error { s.conn.SetReadDeadline(time.Now().Add(config.session.pongWait)); return nil })
 	for {
 		_, message, err := s.conn.ReadMessage()
 		if err != nil {
@@ -88,7 +90,9 @@ func (s *Session) readPump() {
 }
 
 func (s *Session) writePump() {
-	ticker := time.NewTicker(s.config.pingPeriod)
+	config := s.registry.get(serviceConfig).(*Config)
+
+	ticker := time.NewTicker(config.session.pingPeriod)
 	defer func() {
 		ticker.Stop()
 		_ = s.conn.Close()
@@ -109,7 +113,7 @@ func (s *Session) writePump() {
 			s.sendQueueMessages()
 
 		case message, ok := <-s.send:
-			_ = s.conn.SetWriteDeadline(time.Now().Add(s.config.writeWait))
+			_ = s.conn.SetWriteDeadline(time.Now().Add(config.session.writeWait))
 			if !ok {
 				// The session closed the channel.
 				if err := s.conn.WriteMessage(websocket.CloseMessage, []byte{}); err != nil {
@@ -135,7 +139,7 @@ func (s *Session) writePump() {
 			}
 
 		case <-ticker.C:
-			_ = s.conn.SetWriteDeadline(time.Now().Add(s.config.writeWait))
+			_ = s.conn.SetWriteDeadline(time.Now().Add(config.session.writeWait))
 			if err := s.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				sessionLog.Error("ping message error", zap.String("session.id", s.ID), zap.Error(err))
 				return

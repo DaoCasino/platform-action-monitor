@@ -31,9 +31,11 @@ func newSessionManager(registry *Registry) *SessionManager {
 }
 
 func (s *SessionManager) run(done <-chan struct{}) {
+
 	defer func() {
 		for session := range s.sessions {
-			session.scraper.unsubscribeSession <- session
+			scraper := session.registry.get(serviceScraper).(*Scraper)
+			scraper.unsubscribeSession <- session
 
 			delete(s.sessions, session)
 			close(session.send)
@@ -51,7 +53,8 @@ func (s *SessionManager) run(done <-chan struct{}) {
 			s.sessions[session] = true
 		case session := <-s.unregister:
 			if _, ok := s.sessions[session]; ok {
-				session.scraper.unsubscribeSession <- session
+				scraper := session.registry.get(serviceScraper).(*Scraper)
+				scraper.unsubscribeSession <- session
 
 				delete(s.sessions, session)
 				close(session.send)
@@ -60,14 +63,16 @@ func (s *SessionManager) run(done <-chan struct{}) {
 	}
 }
 
-func serveWs(config *Config, scraper *Scraper, manager *SessionManager, w http.ResponseWriter, r *http.Request) {
+func serveWs(registry *Registry, w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		sessionLog.Error("upgrade", zap.Error(err))
 		return
 	}
 
-	session := newSession(&config.session, scraper, manager, conn)
+	session := newSession(registry, conn)
+
+	manager := registry.get(serviceSessionManager).(*SessionManager)
 	manager.register <- session
 
 	// Allow collection of memory referenced by the caller by doing all work in

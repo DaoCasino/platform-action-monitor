@@ -35,6 +35,7 @@ func (p *methodSubscribeParams) execute(session *Session) (methodResult, error) 
 		// zap.Int("count", p.Count),
 		zap.String("session.id", session.ID))
 
+	scraper := session.registry.get(serviceScraper).(*Scraper)
 	message := &ScraperSubscribeMessage{
 		name:     p.Topic,
 		session:  session,
@@ -42,7 +43,7 @@ func (p *methodSubscribeParams) execute(session *Session) (methodResult, error) 
 	}
 
 	session.setOffset(p.Offset)
-	session.scraper.subscribe <- message
+	scraper.subscribe <- message
 	response := <-message.response
 	return response.result, response.err
 }
@@ -64,13 +65,15 @@ func (p *methodUnsubscribeParams) isValid() bool {
 func (p *methodUnsubscribeParams) execute(session *Session) (methodResult, error) {
 	methodLog.Debug("> unsubscribe", zap.String("topic", p.Topic), zap.String("session.id", session.ID))
 
+	scraper := session.registry.get(serviceScraper).(*Scraper)
+
 	message := &ScraperUnsubscribeMessage{
 		name:     p.Topic,
 		session:  session,
 		response: make(chan *ScraperResponseMessage),
 	}
 
-	session.scraper.unsubscribe <- message
+	scraper.unsubscribe <- message
 	response := <-message.response
 
 	return response.result, response.err

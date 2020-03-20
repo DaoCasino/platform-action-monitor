@@ -46,14 +46,14 @@ func main() {
 	registry.set(serviceFetchEvent, fetchEvent)
 
 	scraper := newScraper(registry)
-	registry.set("scraper", scraper)
+	registry.set(serviceScraper, scraper)
 
 	manager := newSessionManager(registry)
-	registry.set("manager", manager)
+	registry.set(serviceSessionManager, manager)
 
 	router := mux.NewRouter()
 	router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		serveWs(config, scraper, manager, w, r)
+		serveWs(registry, w, r)
 	})
 
 	srv := &http.Server{
@@ -89,6 +89,7 @@ func main() {
 	defer func() {
 		//TODO: Close database, redis, truncate message queues, etc.
 		db.Close(context.Background())
+		registry.clean()
 
 		cancel()
 	}()

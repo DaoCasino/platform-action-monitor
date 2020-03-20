@@ -1,10 +1,12 @@
 package main
 
 const (
-	serviceAbiDecoder = "abiDecoder"
-	serviceConfig     = "config"
-	serviceDatabase   = "db"
-	serviceFetchEvent = "fetchEvent"
+	serviceAbiDecoder     = "abiDecoder"
+	serviceConfig         = "config"
+	serviceDatabase       = "db"
+	serviceFetchEvent     = "fetchEvent"
+	serviceScraper        = "scraper"
+	serviceSessionManager = "sessionManager"
 )
 
 type Registry struct {
@@ -21,4 +23,10 @@ func (r *Registry) set(key string, value interface{}) {
 
 func (r *Registry) get(key string) interface{} {
 	return r.objects[key]
+}
+
+func (r *Registry) clean() {
+	for k := range r.objects {
+		delete(r.objects, k)
+	}
 }
