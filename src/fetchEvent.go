@@ -3,7 +3,7 @@ package main
 import (
 	"github.com/jackc/pgx/v4"
 	"go.uber.org/zap"
-	"log"
+	"strconv"
 )
 
 func fetchEvent(conn *pgx.Conn, offset string) (*Event, error) {
@@ -13,7 +13,7 @@ func fetchEvent(conn *pgx.Conn, offset string) (*Event, error) {
 	case nil:
 		// ok
 		if event, err := abiDecoder.Decode(rows.actData); err == nil {
-			// event.Offset = rows.offset TODO: !!!! надо!!
+			event.Offset = strconv.FormatUint(rows.offset, 10)
 			return event, nil
 		}
 	case pgx.ErrNoRows:
@@ -36,11 +36,9 @@ func fetchAllEvents(conn *pgx.Conn, offset string, count uint) ([]*Event, error)
 		return nil, err
 	}
 
-	log.Printf("%+v", dataset)
-
 	for _, data := range dataset {
 		if event, err := abiDecoder.Decode(data.actData); err == nil {
-			// event.Offset = data.offset  TODO: !!!! надо
+			event.Offset = strconv.FormatUint(data.offset, 10)
 			events = append(events, event)
 		}
 	}

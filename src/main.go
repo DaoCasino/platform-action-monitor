@@ -40,7 +40,7 @@ func main() {
 		mainLog.Fatal("abi decoder error", zap.Error(err))
 	}
 
-	pool, err = pgxpool.Connect(context.Background(), config.db.url) // TODO: нужен пулл соедениней разные потоки юзают бд conn busy пишет
+	pool, err = pgxpool.Connect(context.Background(), config.db.url)
 	if err != nil {
 		mainLog.Fatal("database connection", zap.Error(err))
 	}

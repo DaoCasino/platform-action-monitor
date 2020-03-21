@@ -19,6 +19,10 @@ func newQueue() *Queue {
 	return &Queue{false, make([]*Event, 0)}
 }
 
+func (q *Queue) open() {
+	q.isOpen = true
+}
+
 type Session struct {
 	ID     string
 	offset string
@@ -29,10 +33,9 @@ type Session struct {
 	conn *websocket.Conn
 
 	// Buffered channel of outbound messages.
-	send                  chan []byte
-	queue                 chan *Event
-	queueMessages         *Queue
-	idleOpenQueueMessages chan struct{}
+	send          chan []byte
+	queue         chan *Event
+	queueMessages *Queue
 }
 
 //func newSession(config *SessionConfig, scraper *Scraper, manager *SessionManager, conn *websocket.Conn) *Session {
@@ -42,13 +45,12 @@ func newSession(scraper *Scraper, conn *websocket.Conn) *Session {
 	sessionLog.Debug("new session", zap.String("ID", ID))
 
 	return &Session{
-		ID:                    ID,
-		scraper:               scraper,
-		conn:                  conn,
-		send:                  make(chan []byte, 512),
-		queue:                 make(chan *Event, 32),
-		queueMessages:         newQueue(),
-		idleOpenQueueMessages: make(chan struct{}),
+		ID:            ID,
+		scraper:       scraper,
+		conn:          conn,
+		send:          make(chan []byte, 512),
+		queue:         make(chan *Event, 32),
+		queueMessages: newQueue(),
 	}
 }
 
@@ -102,10 +104,6 @@ func (s *Session) writePump() {
 			//if s.queueMessages.isOpen {
 			//	s.sendQueueMessages()
 			//}
-
-		case <-s.idleOpenQueueMessages:
-			s.queueMessages.isOpen = true
-			s.sendQueueMessages()
 
 		case message, ok := <-s.send:
 			_ = s.conn.SetWriteDeadline(time.Now().Add(config.session.writeWait))

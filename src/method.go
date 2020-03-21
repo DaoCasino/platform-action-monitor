@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"go.uber.org/zap"
 )
@@ -48,35 +49,40 @@ func (p *methodSubscribeParams) execute(session *Session) (methodResult, error) 
 }
 
 func (p *methodSubscribeParams) after(session *Session) {
-	methodLog.Debug("after subscribe init send messages offset")
+	methodLog.Debug("after subscribe send events", zap.String("session.id", session.ID), zap.String("offset", p.Offset))
 
-	// TODO: надо в сессии хранить коннект к базе или получать  его из пула
+	conn, err := pool.Acquire(context.Background())
+	if err != nil {
+		methodLog.Error("pool acquire connection error", zap.Error(err))
+	}
 
-	//fetchEvent := session.registry.get(serviceFetchEvent).(*FetchEvent)
-	//
-	//events, err := fetchEvent.fetchAll(p.Offset, 0)
-	//if err != nil {
-	//	methodLog.Error("fetch all events error", zap.Error(err))
-	//	return
-	//}
-	//
-	//// TODO: надо сделать фильтр по типу топика и посылать только те что надо
-	//var eventMessage []byte
-	//eventMessage, err = newEventMessage(events)
-	//if err != nil {
-	//	methodLog.Error("error create eventMessage", zap.Error(err))
-	//	return
-	//}
-	//
-	//select {
-	//case session.send <- eventMessage:
-	//default:
-	//	methodLog.Error("error send eventMessage")
-	//	return
-	//}
-	//
-	//session.setOffset(events[len(events)-1].Offset)
-	//close(session.idleOpenQueueMessages)
+	defer func() {
+		conn.Release()
+	}()
+
+	events, err := fetchAllEvents(conn.Conn(), p.Offset, 0)
+	if err != nil {
+		methodLog.Error("fetch all events error", zap.Error(err))
+		return
+	}
+
+	// TODO: надо сделать фильтр по типу топика и посылать только те что надо
+	var eventMessage []byte
+	eventMessage, err = newEventMessage(events)
+	if err != nil {
+		methodLog.Error("error create eventMessage", zap.Error(err))
+		return
+	}
+
+	select {
+	case session.send <- eventMessage:
+	default:
+		methodLog.Error("error send eventMessage")
+		return
+	}
+
+	session.setOffset(events[len(events)-1].Offset)
+	session.queueMessages.open()
 }
 
 type methodUnsubscribeParams struct {
