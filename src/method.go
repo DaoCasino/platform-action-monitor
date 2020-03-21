@@ -3,7 +3,10 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/jackc/pgx/v4/pgxpool"
 	"go.uber.org/zap"
+	"strconv"
+	"strings"
 )
 
 // type methodParams interface{}
@@ -48,41 +51,71 @@ func (p *methodSubscribeParams) execute(session *Session) (methodResult, error) 
 	return response.result, response.err
 }
 
+// TODO: может куда-то переместить эти функции
+// Topic name event_0
+func getEventTypeFromTopic(topic string) (int, error) {
+	s := strings.Split(topic, "_")
+	return strconv.Atoi(s[len(s)-1])
+}
+
+func filterEventsByEventType(events []*Event, eventType int) []*Event {
+	result := make([]*Event, 0)
+	for _, event := range events {
+		if event.EventType == eventType {
+			result = append(result, event)
+		}
+	}
+	return result
+}
+
 func (p *methodSubscribeParams) after(session *Session) {
 	methodLog.Debug("after subscribe send events", zap.String("session.id", session.ID), zap.String("offset", p.Offset))
 
-	conn, err := pool.Acquire(context.Background())
+	eventType, err := getEventTypeFromTopic(p.Topic)
+	if err != nil {
+		methodLog.Error("error get event type", zap.String("topic", p.Topic), zap.Error(err))
+		return
+	}
+
+	var conn *pgxpool.Conn
+	conn, err = pool.Acquire(context.Background())
 	if err != nil {
 		methodLog.Error("pool acquire connection error", zap.Error(err))
+		return
 	}
 
 	defer func() {
 		conn.Release()
+		session.queueMessages.open() // TODO: <-
 	}()
 
-	events, err := fetchAllEvents(conn.Conn(), p.Offset, 0)
+	var events []*Event
+	events, err = fetchAllEvents(conn.Conn(), p.Offset, 0)
 	if err != nil {
 		methodLog.Error("fetch all events error", zap.Error(err))
 		return
 	}
 
-	// TODO: надо сделать фильтр по типу топика и посылать только те что надо
-	var eventMessage []byte
-	eventMessage, err = newEventMessage(events)
-	if err != nil {
-		methodLog.Error("error create eventMessage", zap.Error(err))
-		return
-	}
+	if len(events) > 0 {
+		filteredEvents := filterEventsByEventType(events, eventType)
 
-	select {
-	case session.send <- eventMessage:
-	default:
-		methodLog.Error("error send eventMessage")
-		return
-	}
+		if len(filteredEvents) > 0 {
+			eventMessage, err := newEventMessage(filteredEvents)
+			if err != nil {
+				methodLog.Error("error create eventMessage", zap.Error(err))
+				return
+			}
 
-	session.setOffset(events[len(events)-1].Offset)
-	session.queueMessages.open()
+			select {
+			case session.send <- eventMessage:
+			default:
+				methodLog.Error("error send eventMessage")
+				return
+			}
+		}
+
+		session.setOffset(events[len(events)-1].Offset)
+	}
 }
 
 type methodUnsubscribeParams struct {

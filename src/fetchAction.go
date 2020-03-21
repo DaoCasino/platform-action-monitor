@@ -55,7 +55,7 @@ func fetchAllActionData(db *pgx.Conn, offset string, count uint, filter *Databas
 	sql := prepareSql(whereParams, count)
 
 	rows, _ := db.Query(context.Background(), sql)
-	defer rows.Close() // TODO: !!! conn busy !!! не работает нихрена надо пул коннектов делать
+	defer rows.Close()
 
 	result := make([]*ActionTraceRows, 0)
 
