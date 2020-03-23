@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/eoscanada/eos-go"
 	"go.uber.org/zap"
@@ -15,16 +14,6 @@ const (
 
 type Decoder struct {
 	abi *eos.ABI
-}
-
-type Event struct {
-	Offset    string          `json:"offset"`
-	Sender    string          `json:"sender"`
-	CasinoID  string          `json:"casino_id"`
-	GameID    string          `json:"game_id"`
-	RequestID string          `json:"req_id"`
-	EventType int             `json:"event_type"`
-	Data      json.RawMessage `json:"data"`
 }
 
 type AbiDecoder struct {
@@ -66,16 +55,6 @@ func (d *Decoder) decodeStruct(data []byte, structName string) ([]byte, error) {
 	}
 
 	return bytes, nil
-}
-
-func newEvent(data []byte) (*Event, error) {
-	fields := new(Event)
-	if err := json.Unmarshal(data, fields); err != nil {
-		decoderLog.Error("parse contract fields error", zap.Error(err))
-		return nil, err
-	}
-
-	return fields, nil
 }
 
 func newAbiDecoder(c *AbiConfig) (a *AbiDecoder, e error) {

@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"go.uber.org/zap"
-	"strconv"
-	"strings"
 )
 
 // type methodParams interface{}
@@ -49,43 +47,6 @@ func (p *methodSubscribeParams) execute(session *Session) (methodResult, error) 
 	scraper.subscribe <- message
 	response := <-message.response
 	return response.result, response.err
-}
-
-// TODO: может куда-то переместить эти функции
-// Topic name event_0
-func getEventTypeFromTopic(topic string) (int, error) {
-	s := strings.Split(topic, "_")
-	return strconv.Atoi(s[len(s)-1])
-}
-
-func filterEventsByEventType(events []*Event, eventType int) []*Event {
-	result := make([]*Event, 0)
-	for _, event := range events {
-		if event.EventType == eventType {
-			result = append(result, event)
-		}
-	}
-	return result
-}
-
-func filterEventsFromOffset(events []*Event, offset string) ([]*Event, error) {
-	offsetInt, err := strconv.Atoi(offset) // TODO: можно лучше...
-	if err != nil {
-		return nil, err
-	}
-
-	for index, event := range events {
-		off, err := strconv.Atoi(event.Offset)
-		if err != nil {
-			return nil, err
-		}
-
-		if off > offsetInt {
-			return events[index:], nil
-		}
-	}
-
-	return nil, nil
 }
 
 func (p *methodSubscribeParams) after(session *Session) {
