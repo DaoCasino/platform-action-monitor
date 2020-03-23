@@ -1,8 +1,6 @@
 package main
 
-import (
-	"testing"
-)
+/*
 
 func setupSessionTestCase(t *testing.T) (*Session, func(t *testing.T)) {
 	registry := newRegistry()
@@ -103,3 +101,5 @@ func TestSessionProcess(t *testing.T) {
 		})
 	}
 }
+
+*/

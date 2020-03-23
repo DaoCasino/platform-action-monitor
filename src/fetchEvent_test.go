@@ -8,49 +8,39 @@ import (
 	"testing"
 )
 
-func setupFetchEventTestCase(t *testing.T) (*FetchEvent, func(t *testing.T)) {
-	registry := newRegistry()
-
-	config := newConfig()
-	registry.set(serviceConfig, config)
-
-	abi, err := newAbiDecoder(&config.abi)
-	if err != nil {
-		t.Fatal("abi decoder error")
-	}
-	registry.set(serviceAbiDecoder, abi)
-
-	conn, err := pgx.Connect(context.Background(), config.db.url)
+func TestFetchEventFetch(t *testing.T) {
+	config = newConfig()
+	db, err := pgx.Connect(context.Background(), config.db.url)
 	if err != nil {
 		t.Skip("database off")
 	}
-	registry.set(serviceDatabase, conn)
+	defer func() {
+		db.Close(context.Background())
+	}()
 
-	fetchEvent := newFetchEvent(registry)
-	registry.set(serviceFetchEvent, fetchEvent)
+	testFilter := "test"
+	config.db.filter.actName = &testFilter
+	config.db.filter.actAccount = &testFilter
 
-	return fetchEvent, func(t *testing.T) {
-		conn.Close(context.Background())
-	}
-}
-
-func TestFetchEventFetch(t *testing.T) {
-	fetchEvent, teardownTestCase := setupFetchEventTestCase(t)
-	defer teardownTestCase(t)
-
-	_, err := fetchEvent.fetch("-1")
+	_, err = fetchEvent(db, "-1")
 	require.Error(t, err)
 }
 
 func TestFetchEventFetchAll(t *testing.T) {
-	fetchEvent, teardownTestCase := setupFetchEventTestCase(t)
-	defer teardownTestCase(t)
+	config = newConfig()
+	db, err := pgx.Connect(context.Background(), config.db.url)
+	if err != nil {
+		t.Skip("database off")
+	}
+	defer func() {
+		db.Close(context.Background())
+	}()
 
 	testFilter := "test"
-	fetchEvent.filter.actAccount = &testFilter
-	fetchEvent.filter.actName = &testFilter
+	config.db.filter.actName = &testFilter
+	config.db.filter.actAccount = &testFilter
 
-	events, err := fetchEvent.fetchAll("-1", 1)
+	events, err := fetchAllEvents(db, "-1", 1)
 
 	require.NoError(t, err)
 	assert.Equal(t, len(events), 0)
