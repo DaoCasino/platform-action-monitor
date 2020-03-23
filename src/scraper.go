@@ -144,7 +144,11 @@ func (s *Scraper) handleNotify(conn *pgx.Conn, offset string) {
 	scraperLog.Debug("handleNotify", zap.String("offset", offset))
 
 	if event, err := fetchEvent(conn, offset); err == nil {
-		s.broadcast <- &ScraperBroadcastMessage{fmt.Sprintf("event_%d", event.EventType), event, nil}
+		select {
+		case s.broadcast <- &ScraperBroadcastMessage{fmt.Sprintf("event_%d", event.EventType), event, nil}:
+		default:
+			return
+		}
 	}
 }
 
