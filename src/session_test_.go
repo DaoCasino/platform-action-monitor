@@ -1,43 +1,37 @@
 package main
 
-/*
+import (
+	"testing"
+)
 
 func setupSessionTestCase(t *testing.T) (*Session, func(t *testing.T)) {
-	registry := newRegistry()
-	config := newConfig()
-	registry.set(serviceConfig, config)
+	config = newConfig()
+	scraper = newScraper()
+	sessionManager = newSessionManager()
 
-	abiDecoder, err := newAbiDecoder(&config.abi)
-	if err != nil {
-		t.Fatal("abi decoder error", err)
-	}
-	registry.set(serviceAbiDecoder, abiDecoder)
-	registry.set(serviceDatabase, nil)
-
-	fetchEvent := newFetchEvent(registry)
-	registry.set(serviceFetchEvent, fetchEvent)
-
-	scraper := newScraper(registry)
-	manager := newSessionManager(registry)
 	done := make(chan struct{})
-	go manager.run(done)
+	go sessionManager.run(done)
 	t.Log("session manager running")
 	go scraper.run(done)
 	t.Log("scraper running")
 
-	session := newSession(&config.session, scraper, manager, nil)
-	session.manager.register <- session
+	session := newSession(scraper, nil)
+	sessionManager.register <- session
 
 	t.Log("session register")
 
 	return session, func(t *testing.T) {
-		session.manager.unregister <- session
+		sessionManager.unregister <- session
 		t.Log("session unregister")
 		close(done)
 		t.Log("scraper stopped")
 		t.Log("session manager stopped")
 	}
 }
+
+/*
+
+
 
 func TestSessionProcess(t *testing.T) {
 	cases := []struct {

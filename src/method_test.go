@@ -1,9 +1,15 @@
 package main
 
-/*
 import (
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"testing"
 )
+
+func TestMethodExecutorFactory(t *testing.T) {
+	_, err := methodExecutorFactory("test")
+	require.Error(t, err)
+}
 
 func TestMethodSubscribe(t *testing.T) {
 	session, teardownTestCase := setupSessionTestCase(t)
@@ -11,14 +17,8 @@ func TestMethodSubscribe(t *testing.T) {
 
 	subscribe := &methodSubscribeParams{Topic: "test"}
 	result, err := subscribe.execute(session)
-
-	if err == nil && result == false {
-		t.Error("subscribe method result false; want true")
-	}
-
-	if err != nil {
-		t.Error(err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, true, result)
 }
 
 func TestMethodUnsubscribe(t *testing.T) {
@@ -29,24 +29,13 @@ func TestMethodUnsubscribe(t *testing.T) {
 
 	unsubscribe := &methodUnsubscribeParams{Topic: topicName}
 	result, err := unsubscribe.execute(session)
-
-	if err == nil || result == true {
-		t.Error("unsubscribe method error nil or result true; want error message and false")
-	}
+	require.Error(t, err)
+	assert.Equal(t, false, result)
 
 	subscribe := &methodSubscribeParams{Topic: topicName}
 	_, _ = subscribe.execute(session)
 
 	result, err = unsubscribe.execute(session)
-
-	if err == nil && result == false {
-		t.Error("unsubscribe method result false; want true")
-	}
-
-	if err != nil {
-		t.Error(err)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, true, result)
 }
-
-
-*/

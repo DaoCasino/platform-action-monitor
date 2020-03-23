@@ -55,7 +55,9 @@ func (s *Scraper) run(done <-chan struct{}) {
 	}()
 	scraperLog.Info("scraper started")
 
-	go scraper.listen(done)
+	if pool != nil {
+		go scraper.listen(done)
+	}
 
 	for {
 		select {
