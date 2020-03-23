@@ -184,9 +184,6 @@ func parseRequest(message []byte, response *ResponseMessage) (methodExecutor, er
 func (s *Session) process(message []byte) error {
 	response := newResponseMessage()
 	method, err := parseRequest(message, response)
-	if err != nil {
-		return err
-	}
 
 	defer func() {
 		raw, err := json.Marshal(response)
@@ -196,8 +193,14 @@ func (s *Session) process(message []byte) error {
 		}
 		s.send <- raw
 
-		method.after(s)
+		if method != nil {
+			method.after(s)
+		}
 	}()
+
+	if err != nil {
+		return err
+	}
 
 	result, err := method.execute(s)
 	if err != nil {

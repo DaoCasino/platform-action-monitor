@@ -27,7 +27,7 @@ type methodSubscribeParams struct {
 }
 
 func (p *methodSubscribeParams) isValid() bool {
-	return len(p.Topic) > 0 && len(p.Offset) > 0
+	return p.Topic != "" && p.Offset != ""
 }
 
 func (p *methodSubscribeParams) execute(session *Session) (methodResult, error) {
@@ -104,7 +104,7 @@ type methodUnsubscribeParams struct {
 }
 
 func (p *methodUnsubscribeParams) isValid() bool {
-	return len(p.Topic) > 0
+	return p.Topic != ""
 }
 
 func (p *methodUnsubscribeParams) execute(session *Session) (methodResult, error) {

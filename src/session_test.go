@@ -1,13 +1,19 @@
 package main
 
 import (
+	"github.com/stretchr/testify/require"
 	"testing"
 )
 
 func setupSessionTestCase(t *testing.T) (*Session, func(t *testing.T)) {
+	var err error
+
 	config = newConfig()
 	scraper = newScraper()
 	sessionManager = newSessionManager()
+
+	abiDecoder, err = newAbiDecoder(&config.abi)
+	require.NoError(t, err)
 
 	done := make(chan struct{})
 	go sessionManager.run(done)
@@ -28,10 +34,6 @@ func setupSessionTestCase(t *testing.T) (*Session, func(t *testing.T)) {
 		t.Log("session manager stopped")
 	}
 }
-
-/*
-
-
 
 func TestSessionProcess(t *testing.T) {
 	cases := []struct {
@@ -56,7 +58,7 @@ func TestSessionProcess(t *testing.T) {
 		},
 		{
 			"subscribe test",
-			`{"id":"4","method":"subscribe","params":{"topic":"test","offset":1}}`,
+			`{"id":"4","method":"subscribe","params":{"topic":"test","offset":"1"}}`,
 			`{"id":"4","result":true,"error":null}`,
 		},
 		{
@@ -88,6 +90,8 @@ func TestSessionProcess(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			session.process([]byte(tc.request))
 
+			// <-session.send
+
 			result := <-session.send
 			if string(result) != tc.expected {
 				t.Fatalf("expected %s, but got %s", tc.expected, string(result))
@@ -95,5 +99,3 @@ func TestSessionProcess(t *testing.T) {
 		})
 	}
 }
-
-*/
