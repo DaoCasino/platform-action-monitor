@@ -35,3 +35,16 @@ func TestGetEventTypeFromTopic(t *testing.T) {
 		})
 	}
 }
+
+func TestFilterEventsByEventType(t *testing.T) {
+	events := []*Event{{EventType: 0}, {EventType: 1}, {EventType: 0}}
+	result := filterEventsByEventType(events, 0)
+	assert.Equal(t, 2, len(result))
+}
+
+func TestFilterEventsFromOffset(t *testing.T) {
+	events := []*Event{{Offset: "1"}, {Offset: "2"}, {Offset: "3"}}
+	result, err := filterEventsFromOffset(events, "1")
+	require.NoError(t, err)
+	assert.Equal(t, 2, len(result))
+}
