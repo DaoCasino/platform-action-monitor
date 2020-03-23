@@ -23,6 +23,14 @@ func (q *Queue) open() {
 	q.isOpen = true
 }
 
+func (q *Queue) add(event *Event) {
+	q.events = append(q.events, event)
+}
+
+func (q *Queue) clean() {
+	q.events = q.events[:0]
+}
+
 type Session struct {
 	ID     string
 	offset string
@@ -99,11 +107,10 @@ func (s *Session) writePump() {
 		select {
 		case event := <-s.queue:
 			sessionLog.Debug("add event in queue", zap.String("session.id", s.ID), zap.String("event.offset", event.Offset))
-			// TODO: !!!! доедлатьяс
-			//s.queueMessages.events[event.Offset]=event
-			//if s.queueMessages.isOpen {
-			//	s.sendQueueMessages()
-			//}
+			s.queueMessages.add(event)
+			if s.queueMessages.isOpen {
+				s.sendQueueMessages()
+			}
 
 		case message, ok := <-s.send:
 			_ = s.conn.SetWriteDeadline(time.Now().Add(config.session.writeWait))
@@ -219,16 +226,29 @@ func (s *Session) process(message []byte) error {
 }
 
 func (s *Session) sendQueueMessages() {
-	sessionLog.Debug("sendQueueMessages start")
+	sessionLog.Debug("sendQueueMessages")
 
+	events, err := filterEventsFromOffset(s.queueMessages.events, s.offset)
+	if err != nil {
+		sessionLog.Error("filterEventsFromOffset", zap.Error(err))
+	}
+
+	if len(events) == 0 {
+		return
+	}
+
+	var eventMessage []byte
+	eventMessage, err = newEventMessage(events)
+	if err != nil {
+		sessionLog.Error("error create eventMessage", zap.Error(err))
+		return
+	}
+	s.queueMessages.clean() // TODO: may be need mutex
+
+	select {
+	case s.send <- eventMessage:
+	default:
+		sessionLog.Error("error send eventMessage")
+		return
+	}
 }
-
-//
-//func (s *Session) init(conn *pgx.Conn, filter *DatabaseFilters) error {
-//	rows, err := fetchAllActionData(conn, s.offset, 0, filter)
-//	if err != nil {
-//		return err
-//	}
-//
-//
-//}

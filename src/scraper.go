@@ -140,30 +140,12 @@ func (s *Scraper) run(done <-chan struct{}) {
 	}
 }
 
-func (s *Scraper) handleNotify(conn *pgx.Conn, offset string, filter *DatabaseFilters) {
+func (s *Scraper) handleNotify(conn *pgx.Conn, offset string) {
 	scraperLog.Debug("handleNotify", zap.String("offset", offset))
 
-	// TODO: !!! расскоментируй доделай!!
-
-	// event, err := fetch
-
-	//data, err := fetchActionData(conn, offset, filter)
-	//switch err {
-	//case nil:
-	//	// ok
-	//	if event, err := s.abi.Decode(data); err == nil {
-	//		event.Offset = offset
-	//		s.broadcast <- &ScraperBroadcastMessage{fmt.Sprintf("event_%d", event.EventType), event, nil}
-	//	}
-	//case pgx.ErrNoRows:
-	//	scraperLog.Debug("no act_data with filter",
-	//		zap.Stringp("act_name", filter.actName),
-	//		zap.Stringp("act_account", filter.actAccount),
-	//	)
-	//default:
-	//	scraperLog.Error("handleNotify SQL error", zap.Error(err))
-	//	return
-	//}
+	if event, err := fetchEvent(conn, offset); err == nil {
+		s.broadcast <- &ScraperBroadcastMessage{fmt.Sprintf("event_%d", event.EventType), event, nil}
+	}
 }
 
 func (s *Scraper) listen(done <-chan struct{}) {
@@ -198,8 +180,8 @@ func (s *Scraper) listen(done <-chan struct{}) {
 					zap.String("channel", notification.Channel),
 					zap.String("payload", notification.Payload),
 				)
-				// TODO: доделать!!!
-				// s.handleNotify(conn.Conn(), notification.Payload, &config.db.filter)
+
+				s.handleNotify(conn.Conn(), notification.Payload)
 			}
 			cancel()
 		}

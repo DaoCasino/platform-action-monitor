@@ -68,6 +68,26 @@ func filterEventsByEventType(events []*Event, eventType int) []*Event {
 	return result
 }
 
+func filterEventsFromOffset(events []*Event, offset string) ([]*Event, error) {
+	offsetInt, err := strconv.Atoi(offset) // TODO: можно лучше...
+	if err != nil {
+		return nil, err
+	}
+
+	for index, event := range events {
+		off, err := strconv.Atoi(event.Offset)
+		if err != nil {
+			return nil, err
+		}
+
+		if off > offsetInt {
+			return events[index:], nil
+		}
+	}
+
+	return nil, nil
+}
+
 func (p *methodSubscribeParams) after(session *Session) {
 	methodLog.Debug("after subscribe send events", zap.String("session.id", session.ID), zap.String("offset", p.Offset))
 

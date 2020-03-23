@@ -27,7 +27,7 @@ var sessionManager *SessionManager
 func main() {
 	config = newConfig()
 
-	// TODO: delete!
+	// TODO: need config log level
 	logger := newLogger(false)
 	EnableDebugLogging(logger)
 	// -----------
