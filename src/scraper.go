@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/jackc/pgx/v4"
 	"go.uber.org/zap"
+	"strconv"
 	"time"
 )
 
@@ -142,8 +143,8 @@ func (s *Scraper) run(done <-chan struct{}) {
 	}
 }
 
-func (s *Scraper) handleNotify(conn *pgx.Conn, offset string) {
-	scraperLog.Debug("handleNotify", zap.String("offset", offset))
+func (s *Scraper) handleNotify(conn *pgx.Conn, offset uint64) {
+	scraperLog.Debug("handleNotify", zap.Uint64("offset", offset))
 
 	if event, err := fetchEvent(conn, offset); err == nil {
 		select {
@@ -187,7 +188,13 @@ func (s *Scraper) listen(done <-chan struct{}) {
 					zap.String("payload", notification.Payload),
 				)
 
-				s.handleNotify(conn.Conn(), notification.Payload)
+				offset, err := strconv.ParseInt(notification.Payload, 10, 64)
+				if err != nil {
+					scraperLog.Error("parseInt error", zap.Error(err))
+					return
+				}
+
+				s.handleNotify(conn.Conn(), uint64(offset))
 			}
 			cancel()
 		}

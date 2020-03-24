@@ -39,7 +39,7 @@ func (q *Queue) clean() {
 
 type Session struct {
 	ID     string
-	offset string
+	offset uint64
 
 	scraper *Scraper
 
@@ -68,7 +68,7 @@ func newSession(scraper *Scraper, conn *websocket.Conn) *Session {
 	}
 }
 
-func (s *Session) setOffset(offset string) {
+func (s *Session) setOffset(offset uint64) {
 	s.offset = offset
 }
 
@@ -112,7 +112,7 @@ func (s *Session) writePump() {
 	for {
 		select {
 		case event := <-s.queue:
-			sessionLog.Debug("add event in queue", zap.String("session.id", s.ID), zap.String("event.offset", event.Offset))
+			sessionLog.Debug("add event in queue", zap.String("session.id", s.ID), zap.Uint64("event.offset", event.Offset))
 			s.queueMessages.add(event)
 			if s.queueMessages.isOpen() {
 				s.sendQueueMessages()
@@ -234,9 +234,9 @@ func (s *Session) process(message []byte) error {
 	return nil
 }
 
-func (s *Session) sendMessages(topic string, offset string) {
+func (s *Session) sendMessages(topic string, offset uint64) {
 	// TODO: нужно замокать базу
-	sessionLog.Debug("after subscribe send events", zap.String("session.id", s.ID), zap.String("offset", offset))
+	sessionLog.Debug("after subscribe send events", zap.String("session.id", s.ID), zap.Uint64("offset", offset))
 
 	eventType, err := getEventTypeFromTopic(topic)
 	if err != nil {

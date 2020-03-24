@@ -3,17 +3,16 @@ package main
 import (
 	"github.com/jackc/pgx/v4"
 	"go.uber.org/zap"
-	"strconv"
 )
 
-func fetchEvent(conn *pgx.Conn, offset string) (*Event, error) {
+func fetchEvent(conn *pgx.Conn, offset uint64) (*Event, error) {
 	filter := config.db.filter
 	rows, err := fetchActionData(conn, offset, &filter)
 	switch err {
 	case nil:
 		// ok
 		if event, err := abiDecoder.Decode(rows.actData); err == nil {
-			event.Offset = strconv.FormatUint(rows.offset, 10)
+			event.Offset = rows.offset
 			return event, nil
 		}
 	case pgx.ErrNoRows:
@@ -28,7 +27,7 @@ func fetchEvent(conn *pgx.Conn, offset string) (*Event, error) {
 	return nil, err
 }
 
-func fetchAllEvents(conn *pgx.Conn, offset string, count uint) ([]*Event, error) {
+func fetchAllEvents(conn *pgx.Conn, offset uint64, count uint) ([]*Event, error) {
 	filter := config.db.filter
 	events := make([]*Event, 0)
 	dataset, err := fetchAllActionData(conn, offset, count, &filter)
@@ -38,7 +37,7 @@ func fetchAllEvents(conn *pgx.Conn, offset string, count uint) ([]*Event, error)
 
 	for _, data := range dataset {
 		if event, err := abiDecoder.Decode(data.actData); err == nil {
-			event.Offset = strconv.FormatUint(data.offset, 10)
+			event.Offset = data.offset
 			events = append(events, event)
 		}
 	}

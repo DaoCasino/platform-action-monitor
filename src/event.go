@@ -8,7 +8,7 @@ import (
 )
 
 type Event struct {
-	Offset    string          `json:"offset"`
+	Offset    uint64          `json:"offset"`
 	Sender    string          `json:"sender"`
 	CasinoID  string          `json:"casino_id"`
 	GameID    string          `json:"game_id"`
@@ -44,19 +44,9 @@ func filterEventsByEventType(events []*Event, eventType int) []*Event {
 	return result
 }
 
-func filterEventsFromOffset(events []*Event, offset string) ([]*Event, error) {
-	offsetInt, err := strconv.Atoi(offset) // TODO: можно лучше...
-	if err != nil {
-		return nil, err
-	}
-
+func filterEventsFromOffset(events []*Event, offset uint64) ([]*Event, error) {
 	for index, event := range events {
-		off, err := strconv.Atoi(event.Offset)
-		if err != nil {
-			return nil, err
-		}
-
-		if off > offsetInt {
+		if event.Offset > offset {
 			return events[index:], nil
 		}
 	}

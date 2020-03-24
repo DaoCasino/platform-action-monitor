@@ -20,7 +20,7 @@ type ResponseMessage struct {
 }
 
 type EventMessage struct {
-	Offset string   `json:"offset"` // last event.offset
+	Offset uint64   `json:"offset"` // last event.offset
 	Events []*Event `json:"events"`
 }
 

@@ -58,7 +58,7 @@ func TestSessionProcess(t *testing.T) {
 		},
 		{
 			"subscribe test",
-			`{"id":"4","method":"subscribe","params":{"topic":"test","offset":"1"}}`,
+			`{"id":"4","method":"subscribe","params":{"topic":"test","offset":1}}`,
 			`{"id":"4","result":true,"error":null}`,
 		},
 		{

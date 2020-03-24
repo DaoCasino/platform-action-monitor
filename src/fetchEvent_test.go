@@ -22,7 +22,7 @@ func TestFetchEventFetch(t *testing.T) {
 	config.db.filter.actName = &testFilter
 	config.db.filter.actAccount = &testFilter
 
-	_, err = fetchEvent(db, "-1")
+	_, err = fetchEvent(db, 0)
 	require.Error(t, err)
 }
 
@@ -40,7 +40,7 @@ func TestFetchEventFetchAll(t *testing.T) {
 	config.db.filter.actName = &testFilter
 	config.db.filter.actAccount = &testFilter
 
-	events, err := fetchAllEvents(db, "-1", 1)
+	events, err := fetchAllEvents(db, 0, 1)
 
 	require.NoError(t, err)
 	assert.Equal(t, len(events), 0)

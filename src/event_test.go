@@ -43,8 +43,8 @@ func TestFilterEventsByEventType(t *testing.T) {
 }
 
 func TestFilterEventsFromOffset(t *testing.T) {
-	events := []*Event{{Offset: "1"}, {Offset: "2"}, {Offset: "3"}}
-	result, err := filterEventsFromOffset(events, "1")
+	events := []*Event{{Offset: 1}, {Offset: 2}, {Offset: 3}}
+	result, err := filterEventsFromOffset(events, 1)
 	require.NoError(t, err)
 	assert.Equal(t, 2, len(result))
 }

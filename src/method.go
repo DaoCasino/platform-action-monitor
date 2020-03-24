@@ -21,17 +21,17 @@ const (
 type methodSubscribeParams struct {
 	Topic string `json:"topic"`
 	// Count  int    `json:"count"`
-	Offset string `json:"offset"`
+	Offset uint64 `json:"offset"`
 }
 
 func (p *methodSubscribeParams) isValid() bool {
-	return p.Topic != "" && p.Offset != ""
+	return p.Topic != ""
 }
 
 func (p *methodSubscribeParams) execute(session *Session) (methodResult, error) {
 	methodLog.Debug("> subscribe",
 		zap.String("topic", p.Topic),
-		zap.String("offset", p.Offset),
+		zap.Uint64("offset", p.Offset),
 		// zap.Int("count", p.Count),
 		zap.String("session.id", session.ID))
 
