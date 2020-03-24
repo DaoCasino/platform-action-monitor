@@ -3,12 +3,18 @@ package main
 import (
 	"bytes"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"github.com/eoscanada/eos-go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"testing"
 )
+
+type TestEventData struct {
+	A uint64 `json:"a"`
+	B uint32 `json:"b"`
+}
 
 func TestDecodeAction(t *testing.T) {
 	decoder, err := newDecoder(defaultContractABI)
@@ -24,14 +30,7 @@ func TestDecodeAction(t *testing.T) {
 }
 
 func createStructData(t *testing.T, a uint64, b uint32) []byte {
-	s := struct {
-		A uint64
-		B uint32
-	}{
-		A: a,
-		B: b,
-	}
-
+	s := &TestEventData{a, b}
 	var buffer bytes.Buffer
 	encoder := eos.NewEncoder(&buffer)
 	err := encoder.Encode(s)
@@ -46,7 +45,13 @@ func TestDecodeStruct(t *testing.T) {
 
 	data := createStructData(t, 1, 2)
 	decodeBytes, err := decoder.decodeStruct(data, defaultEventStructName)
-	assert.Equal(t, decodeBytes, []byte(`{"b":2,"a":1}`))
+
+	eventData := new(TestEventData)
+	err = json.Unmarshal(decodeBytes, &eventData)
+	require.NoError(t, err)
+
+	assert.Equal(t, uint64(1), eventData.A)
+	assert.Equal(t, uint32(2), eventData.B)
 }
 
 func TestAbiDecoder(t *testing.T) {
