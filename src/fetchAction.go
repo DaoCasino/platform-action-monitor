@@ -12,49 +12,59 @@ type ActionTraceRows struct {
 	offset  uint64
 }
 
-func filterParams(params []string, filter *DatabaseFilters) []string {
-	if filter == nil {
-		return params
-	}
-
-	if filter.actAccount != nil {
-		params = append(params, fmt.Sprintf("act_account='%s'", *filter.actAccount))
-	}
-	if filter.actName != nil {
-		params = append(params, fmt.Sprintf("act_name='%s'", *filter.actName))
-	}
-
-	return params
+type SqlQuery struct {
+	key   []string
+	value []interface{}
 }
 
-func prepareSql(whereParams []string, count uint) string {
-	where := strings.Join(whereParams, " AND ")
-	sql := fmt.Sprintf("SELECT act_data, receipt_global_sequence AS offset FROM chain.action_trace WHERE %s ORDER BY receipt_global_sequence ASC", where)
-	if count != 0 {
-		sql += fmt.Sprintf(" LIMIT %d", count)
+func newSqlQuery(filter *DatabaseFilters) *SqlQuery {
+	s := &SqlQuery{make([]string, 0), make([]interface{}, 0)}
+
+	if filter.actAccount != nil {
+		s.append("act_account=", *filter.actAccount)
 	}
-	// scraperLog.Debug("prepareSql", zap.String("sql", sql))
-	return sql
+	if filter.actName != nil {
+		s.append("act_name=", *filter.actName)
+	}
+
+	return s
+}
+
+func (s *SqlQuery) append(key string, value interface{}) {
+	s.value = append(s.value, value)
+	s.key = append(s.key, fmt.Sprintf("%s$%d", key, len(s.value)))
+}
+
+func (s *SqlQuery) get() (string, []interface{}) {
+	where := strings.Join(s.key, " AND ")
+	sql := fmt.Sprintf("SELECT act_data, receipt_global_sequence AS offset FROM chain.action_trace WHERE %s ORDER BY receipt_global_sequence ASC", where)
+
+	return sql, s.value
 }
 
 func fetchActionData(db *pgx.Conn, offset string, filter *DatabaseFilters) (*ActionTraceRows, error) {
-	whereParams := []string{fmt.Sprintf("receipt_global_sequence = %s", offset)}
-	whereParams = filterParams(whereParams, filter)
+	s := newSqlQuery(filter)
+	s.append("receipt_global_sequence=", offset)
 
-	sql := prepareSql(whereParams, 1)
+	sql, args := s.get()
 	rows := new(ActionTraceRows)
 
-	err := db.QueryRow(context.Background(), sql).Scan(&rows.actData, &rows.offset)
+	err := db.QueryRow(context.Background(), sql, args...).Scan(&rows.actData, &rows.offset)
 	return rows, err
 }
 
 func fetchAllActionData(db *pgx.Conn, offset string, count uint, filter *DatabaseFilters) ([]*ActionTraceRows, error) {
-	whereParams := []string{fmt.Sprintf("receipt_global_sequence >= %s", offset)}
-	whereParams = filterParams(whereParams, filter)
+	s := newSqlQuery(filter)
+	s.append("receipt_global_sequence >=", offset)
 
-	sql := prepareSql(whereParams, count)
+	sql, args := s.get()
 
-	rows, _ := db.Query(context.Background(), sql)
+	if count != 0 { // TODO: not tested
+		args = append(args, count)
+		sql += fmt.Sprintf(" LIMIT $%d", len(args))
+	}
+
+	rows, _ := db.Query(context.Background(), sql, args...)
 	defer rows.Close()
 
 	result := make([]*ActionTraceRows, 0)
