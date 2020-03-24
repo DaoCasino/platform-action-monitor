@@ -14,6 +14,7 @@ require (
 	github.com/lucsky/cuid v1.0.2
 	github.com/stretchr/objx v0.2.0 // indirect
 	github.com/stretchr/testify v1.5.1
+	github.com/tevino/abool v0.0.0-20170917061928-9b9efcf221b5
 	go.uber.org/zap v1.14.0
 	golang.org/x/net v0.0.0-20190813141303-74dc4d7220e7 // indirect
 )

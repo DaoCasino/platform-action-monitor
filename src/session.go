@@ -1,26 +1,32 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/gorilla/websocket"
+	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/lucsky/cuid"
+	"github.com/tevino/abool"
 	"go.uber.org/zap"
 	"time"
-
-	"github.com/gorilla/websocket"
-	"github.com/lucsky/cuid"
 )
 
 type Queue struct {
-	isOpen bool
+	flag   *abool.AtomicBool
 	events []*Event
 }
 
 func newQueue() *Queue {
-	return &Queue{false, make([]*Event, 0)}
+	return &Queue{abool.New(), make([]*Event, 0)}
 }
 
 func (q *Queue) open() {
-	q.isOpen = true
+	q.flag.Set()
+}
+
+func (q *Queue) isOpen() bool {
+	return q.flag.IsSet()
 }
 
 func (q *Queue) add(event *Event) {
@@ -108,7 +114,7 @@ func (s *Session) writePump() {
 		case event := <-s.queue:
 			sessionLog.Debug("add event in queue", zap.String("session.id", s.ID), zap.String("event.offset", event.Offset))
 			s.queueMessages.add(event)
-			if s.queueMessages.isOpen {
+			if s.queueMessages.isOpen() {
 				s.sendQueueMessages()
 			}
 
@@ -228,6 +234,59 @@ func (s *Session) process(message []byte) error {
 	return nil
 }
 
+func (s *Session) sendMessages(topic string, offset string) {
+	// TODO: нужно замокать базу
+	sessionLog.Debug("after subscribe send events", zap.String("session.id", s.ID), zap.String("offset", offset))
+
+	eventType, err := getEventTypeFromTopic(topic)
+	if err != nil {
+		sessionLog.Error("error get event type", zap.String("topic", topic), zap.Error(err))
+		return
+	}
+
+	var conn *pgxpool.Conn
+	conn, err = pool.Acquire(context.Background())
+	if err != nil {
+		sessionLog.Error("pool acquire connection error", zap.Error(err))
+		return
+	}
+
+	defer func() {
+		conn.Release()
+
+		s.sendQueueMessages()
+		s.queueMessages.open() // TODO: <-
+	}()
+
+	var events []*Event
+	events, err = fetchAllEvents(conn.Conn(), offset, 0)
+	if err != nil {
+		sessionLog.Error("fetch all events error", zap.Error(err))
+		return
+	}
+
+	if len(events) > 0 {
+		filteredEvents := filterEventsByEventType(events, eventType)
+
+		if len(filteredEvents) > 0 {
+			eventMessage, err := newEventMessage(filteredEvents)
+			if err != nil {
+				sessionLog.Error("error create eventMessage", zap.Error(err))
+				return
+			}
+
+			select {
+			case s.send <- eventMessage:
+			default:
+				sessionLog.Error("error send eventMessage")
+				return
+			}
+		}
+
+		s.setOffset(events[len(events)-1].Offset)
+	}
+}
+
 func (s *Session) sendQueueMessages() {
 	sessionLog.Debug("sendQueueMessages")
 
@@ -246,7 +305,7 @@ func (s *Session) sendQueueMessages() {
 		sessionLog.Error("error create eventMessage", zap.Error(err))
 		return
 	}
-	s.queueMessages.clean() // TODO: may be need mutex
+	s.queueMessages.clean()
 
 	select {
 	case s.send <- eventMessage:
