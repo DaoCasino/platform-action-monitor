@@ -5,7 +5,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func fetchEvent(conn *pgx.Conn, offset uint64) (*Event, error) {
+func fetchEvent(conn DatabaseConnect, offset uint64) (*Event, error) {
 	filter := config.db.filter
 	rows, err := fetchActionData(conn, offset, &filter)
 	switch err {
@@ -27,7 +27,7 @@ func fetchEvent(conn *pgx.Conn, offset uint64) (*Event, error) {
 	return nil, err
 }
 
-func fetchAllEvents(conn *pgx.Conn, offset uint64, count uint) ([]*Event, error) {
+func fetchAllEvents(conn DatabaseConnect, offset uint64, count uint) ([]*Event, error) {
 	filter := config.db.filter
 	events := make([]*Event, 0)
 	dataset, err := fetchAllActionData(conn, offset, count, &filter)

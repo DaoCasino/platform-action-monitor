@@ -1,8 +1,6 @@
 package main
 
 import (
-	"context"
-	"github.com/jackc/pgx/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"testing"
@@ -10,38 +8,24 @@ import (
 
 func TestFetchEventFetch(t *testing.T) {
 	config = newConfig()
-	db, err := pgx.Connect(context.Background(), config.db.url)
-	if err != nil {
-		t.Skip("database off")
-	}
-	defer func() {
-		db.Close(context.Background())
-	}()
+	db := &DatabaseMock{}
 
 	testFilter := "test"
 	config.db.filter.actName = &testFilter
 	config.db.filter.actAccount = &testFilter
 
-	_, err = fetchEvent(db, 0)
+	_, err := fetchEvent(db, 0)
 	require.Error(t, err)
 }
 
 func TestFetchEventFetchAll(t *testing.T) {
 	config = newConfig()
-	db, err := pgx.Connect(context.Background(), config.db.url)
-	if err != nil {
-		t.Skip("database off")
-	}
-	defer func() {
-		db.Close(context.Background())
-	}()
+	db := &DatabaseMock{}
 
 	testFilter := "test"
 	config.db.filter.actName = &testFilter
 	config.db.filter.actAccount = &testFilter
 
-	events, err := fetchAllEvents(db, 0, 1)
-
-	require.NoError(t, err)
+	events, _ := fetchAllEvents(db, 0, 1)
 	assert.Equal(t, len(events), 0)
 }

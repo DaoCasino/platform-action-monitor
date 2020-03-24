@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/jackc/pgx/v4"
+	// "github.com/jackc/pgx/v4"
 	"strings"
 )
 
@@ -42,7 +42,7 @@ func (s *SqlQuery) get() (string, []interface{}) {
 	return sql, s.value
 }
 
-func fetchActionData(db *pgx.Conn, offset uint64, filter *DatabaseFilters) (*ActionTraceRows, error) {
+func fetchActionData(db DatabaseConnect, offset uint64, filter *DatabaseFilters) (*ActionTraceRows, error) {
 	s := newSqlQuery(filter)
 	s.append("receipt_global_sequence=", offset)
 
@@ -53,7 +53,7 @@ func fetchActionData(db *pgx.Conn, offset uint64, filter *DatabaseFilters) (*Act
 	return rows, err
 }
 
-func fetchAllActionData(db *pgx.Conn, offset uint64, count uint, filter *DatabaseFilters) ([]*ActionTraceRows, error) {
+func fetchAllActionData(db DatabaseConnect, offset uint64, count uint, filter *DatabaseFilters) ([]*ActionTraceRows, error) {
 	s := newSqlQuery(filter)
 	s.append("receipt_global_sequence >=", offset)
 
