@@ -25,16 +25,25 @@ var scraper *Scraper
 var sessionManager *SessionManager
 
 func main() {
-	config = newConfig()
+	configFile := flag.String("config", "", "config file")
+	flag.Parse()
 
 	// TODO: need config log level
 	logger := newLogger(false)
 	EnableDebugLogging(logger)
 	// -----------
 
-	flag.Parse()
-
 	var err error
+	config = newConfig()
+	if *configFile != "" {
+		err = config.loadFromFile(configFile)
+		if err != nil {
+			mainLog.Fatal("config file error", zap.Error(err))
+		}
+	} else {
+		mainLog.Info("set default config")
+	}
+
 	abiDecoder, err = newAbiDecoder(&config.abi)
 	if err != nil {
 		mainLog.Fatal("abi decoder error", zap.Error(err))
