@@ -1,8 +1,12 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"github.com/jackc/pgx/v4"
 	"go.uber.org/zap"
+	"strconv"
+	"time"
 )
 
 type ScraperSubscribeMessage struct {
@@ -17,6 +21,12 @@ type ScraperUnsubscribeMessage struct {
 	response chan *ScraperResponseMessage
 }
 
+type ScraperBroadcastMessage struct {
+	name     string
+	event    *Event
+	response chan *ScraperResponseMessage
+}
+
 type ScraperResponseMessage struct {
 	result interface{}
 	err    error
@@ -27,6 +37,7 @@ type Scraper struct {
 	unsubscribeSession chan *Session
 	subscribe          chan *ScraperSubscribeMessage
 	unsubscribe        chan *ScraperUnsubscribeMessage
+	broadcast          chan *ScraperBroadcastMessage
 }
 
 func newScraper() *Scraper {
@@ -34,6 +45,7 @@ func newScraper() *Scraper {
 		topics:             make(map[string]map[*Session]bool),
 		subscribe:          make(chan *ScraperSubscribeMessage),
 		unsubscribe:        make(chan *ScraperUnsubscribeMessage),
+		broadcast:          make(chan *ScraperBroadcastMessage),
 		unsubscribeSession: make(chan *Session),
 	}
 }
@@ -42,8 +54,11 @@ func (s *Scraper) run(done <-chan struct{}) {
 	defer func() {
 		scraperLog.Info("scraper stopped")
 	}()
-
 	scraperLog.Info("scraper started")
+
+	if pool != nil {
+		go scraper.listen(done)
+	}
 
 	for {
 		select {
@@ -104,6 +119,84 @@ func (s *Scraper) run(done <-chan struct{}) {
 				message.response <- response
 				close(message.response)
 			}
+		case message := <-s.broadcast:
+			scraperLog.Debug("send broadcast",
+				zap.String("name", message.name),
+			)
+			response := new(ScraperResponseMessage)
+
+			if topicClients, ok := s.topics[message.name]; ok {
+				for clientSession := range topicClients {
+					clientSession.queue <- message.event
+				}
+				response.result = true
+			} else {
+				response.result = false
+				response.err = fmt.Errorf("topic %s not exist", message.name)
+			}
+
+			if message.response != nil {
+				message.response <- response
+				close(message.response)
+			}
+		}
+	}
+}
+
+func (s *Scraper) handleNotify(conn *pgx.Conn, offset uint64) {
+	scraperLog.Debug("handleNotify", zap.Uint64("offset", offset))
+
+	if event, err := fetchEvent(conn, offset); err == nil {
+		select {
+		case s.broadcast <- &ScraperBroadcastMessage{fmt.Sprintf("event_%d", event.EventType), event, nil}:
+		default:
+			return
+		}
+	}
+}
+
+func (s *Scraper) listen(done <-chan struct{}) {
+	conn, err := pool.Acquire(context.Background())
+	if err != nil {
+		scraperLog.Error("pool acquire connection error", zap.Error(err))
+	}
+
+	scraperLog.Debug("listen notify start")
+
+	defer func() {
+		conn.Release()
+		scraperLog.Debug("listen notify stop")
+	}()
+
+	_, err = conn.Exec(context.Background(), "listen new_action_trace")
+	if err != nil {
+		scraperLog.Error("error listening new_action_trace", zap.Error(err))
+		return
+	}
+
+	for {
+		select {
+		case <-done:
+			return
+		default:
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			notification, err := conn.Conn().WaitForNotification(ctx)
+			if err == nil {
+				scraperLog.Debug("notify",
+					zap.Uint32("PID", notification.PID),
+					zap.String("channel", notification.Channel),
+					zap.String("payload", notification.Payload),
+				)
+
+				offset, err := strconv.ParseInt(notification.Payload, 10, 64)
+				if err != nil {
+					scraperLog.Error("parseInt error", zap.Error(err))
+					return
+				}
+
+				s.handleNotify(conn.Conn(), uint64(offset))
+			}
+			cancel()
 		}
 	}
 }

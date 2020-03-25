@@ -20,7 +20,7 @@ services:
             dockerfile: ubuntu-18.04.dockerfile
         depends_on:
             - database
-        command: /root/history-tools/build/fill-pg --fpg-drop --fpg-create --fill-connect-to 192.168.1.75:8080
+        command: /root/history-tools/build/fill-pg --fpg-drop --fpg-create --fill-connect-to 192.168.1.3:8080
         environment:
             PGUSER: ${POSTGRES_USER}
             PGPASSWORD: ${POSTGRES_PASSWORD}

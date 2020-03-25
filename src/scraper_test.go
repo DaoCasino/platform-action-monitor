@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
@@ -17,17 +18,11 @@ func TestScraperSubscribe(t *testing.T) {
 	session.scraper.subscribe <- message
 	response := <-message.response
 
-	if response.result != true {
-		t.Error("subscribe response false; want true")
-	}
+	assert.Equal(t, true, response.result)
+	assert.Equal(t, 1, len(session.scraper.topics))
 
-	if len(session.scraper.topics) != 1 {
-		t.Errorf("topics len %d; want 1", len(session.scraper.topics))
-	}
-
-	if _, ok := session.scraper.topics[message.name]; !ok {
-		t.Error("topic not exists; want true")
-	}
+	_, ok := session.scraper.topics[message.name]
+	assert.Equal(t, true, ok)
 }
 
 func TestScraperUnsubscribe(t *testing.T) {
@@ -47,9 +42,7 @@ func TestScraperUnsubscribe(t *testing.T) {
 	session.scraper.unsubscribe <- message
 	response := <-message.response
 
-	if response.result == true {
-		t.Error("unsubscribe not exists topic result true; want false")
-	}
+	assert.Equal(t, false, response.result)
 
 	msg := &ScraperUnsubscribeMessage{
 		name:     topicName,
@@ -59,11 +52,10 @@ func TestScraperUnsubscribe(t *testing.T) {
 	session.scraper.unsubscribe <- msg
 	res := <-msg.response
 
-	if res.result == false {
-		t.Error("unsubscribe result false; want true")
-	}
+	assert.Equal(t, true, res.result)
+	assert.Equal(t, 0, len(session.scraper.topics))
+}
 
-	if len(session.scraper.topics) != 0 {
-		t.Errorf("topics len %d; want 0", len(session.scraper.topics))
-	}
+func TestBroadcastMessage(t *testing.T) {
+	t.Skip("need mock websocket connection")
 }

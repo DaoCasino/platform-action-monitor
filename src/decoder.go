@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/eoscanada/eos-go"
 	"go.uber.org/zap"
@@ -15,15 +14,6 @@ const (
 
 type Decoder struct {
 	abi *eos.ABI
-}
-
-type Event struct {
-	Sender    string          `json:"sender"`
-	CasinoID  uint64          `json:"casino_id"`
-	GameID    uint64          `json:"game_id"`
-	RequestID uint64          `json:"req_id"`
-	EventType int             `json:"event_type"`
-	Data      json.RawMessage `json:"data"`
 }
 
 type AbiDecoder struct {
@@ -67,16 +57,6 @@ func (d *Decoder) decodeStruct(data []byte, structName string) ([]byte, error) {
 	return bytes, nil
 }
 
-func newEvent(data []byte) (*Event, error) {
-	fields := new(Event)
-	if err := json.Unmarshal(data, fields); err != nil {
-		decoderLog.Error("parse contract fields error", zap.Error(err))
-		return nil, err
-	}
-
-	return fields, nil
-}
-
 func newAbiDecoder(c *AbiConfig) (a *AbiDecoder, e error) {
 	a = new(AbiDecoder)
 	a.main, e = newDecoder(c.main)
@@ -100,6 +80,7 @@ func (a *AbiDecoder) decodeEvent(data []byte) (*Event, error) {
 	if err != nil {
 		return nil, err
 	}
+	// decoderLog.Debug("decodeEvent", zap.String("json", string(decodeBytes)))
 	return newEvent(decodeBytes)
 }
 
@@ -111,15 +92,19 @@ func (a *AbiDecoder) decodeEventData(event int, data []byte) ([]byte, error) {
 	return a.events[event].decodeStruct(data, defaultEventStructName)
 }
 
-func (a *AbiDecoder) decode(data []byte) ([]byte, error) {
+func (a *AbiDecoder) Decode(data []byte) (*Event, error) {
 	event, err := a.decodeEvent(data)
 	if err != nil {
 		return nil, err
 	}
-	decodeBytes, err := a.decodeEventData(event.EventType, event.Data)
-	if err != nil {
-		return nil, err
+
+	if len(event.Data) > 0 {
+		decodeBytes, err := a.decodeEventData(event.EventType, event.Data)
+		if err != nil {
+			return nil, err
+		}
+		event.Data = decodeBytes
 	}
-	event.Data = decodeBytes
-	return json.Marshal(event)
+
+	return event, nil
 }

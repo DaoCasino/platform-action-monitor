@@ -1,26 +1,33 @@
 package main
 
 import (
+	"github.com/stretchr/testify/require"
 	"testing"
 )
 
 func setupSessionTestCase(t *testing.T) (*Session, func(t *testing.T)) {
-	config := newConfig()
-	scraper := newScraper()
-	manager := newSessionManager(&config.upgrader)
+	var err error
+
+	config = newConfig()
+	scraper = newScraper()
+	sessionManager = newSessionManager()
+
+	abiDecoder, err = newAbiDecoder(&config.abi)
+	require.NoError(t, err)
+
 	done := make(chan struct{})
-	go manager.run(done)
+	go sessionManager.run(done)
 	t.Log("session manager running")
 	go scraper.run(done)
 	t.Log("scraper running")
 
-	session := newSession(&config.session, scraper, manager, nil)
-	session.manager.register <- session
+	session := newSession(scraper, nil)
+	sessionManager.register <- session
 
 	t.Log("session register")
 
 	return session, func(t *testing.T) {
-		session.manager.unregister <- session
+		sessionManager.unregister <- session
 		t.Log("session unregister")
 		close(done)
 		t.Log("scraper stopped")
@@ -82,6 +89,8 @@ func TestSessionProcess(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			session.process([]byte(tc.request))
+
+			// <-session.send
 
 			result := <-session.send
 			if string(result) != tc.expected {

@@ -24,6 +24,7 @@ const (
 
 	defaultContractABI = "../contract.abi"
 	defaultEventABI    = "../event.abi"
+	defaultDatabaseUrl = "postgres://test:test@localhost/test"
 )
 
 type ConfigFile struct {
@@ -66,7 +67,18 @@ type AbiConfig struct {
 	events map[int]string
 }
 
+type DatabaseFilters struct {
+	actAccount *string
+	actName    *string
+}
+
+type DatabaseConfig struct {
+	url    string
+	filter DatabaseFilters
+}
+
 type Config struct {
+	db            DatabaseConfig
 	serverAddress string
 	session       SessionConfig
 	upgrader      UpgraderConfig
@@ -74,8 +86,8 @@ type Config struct {
 }
 
 func newConfig() *Config {
-
 	config := &Config{
+		db:            DatabaseConfig{defaultDatabaseUrl, DatabaseFilters{nil, nil}},
 		serverAddress: defaultAddr,
 		session:       SessionConfig{defaultWriteWait, defaultPongWait, defaultPingPeriod, defaultMaxMessageSize},
 		upgrader:      UpgraderConfig{defaultReadBufferSize, defaultWriteBufferSize},

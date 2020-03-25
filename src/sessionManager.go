@@ -14,11 +14,10 @@ type SessionManager struct {
 	unregister chan *Session
 }
 
-func newSessionManager(config *UpgraderConfig) *SessionManager {
-
+func newSessionManager() *SessionManager {
 	upgrader = websocket.Upgrader{
-		ReadBufferSize:  config.readBufferSize,
-		WriteBufferSize: config.writeBufferSize,
+		ReadBufferSize:  config.upgrader.readBufferSize,
+		WriteBufferSize: config.upgrader.writeBufferSize,
 		CheckOrigin:     func(r *http.Request) bool { return true },
 	}
 
@@ -32,7 +31,7 @@ func newSessionManager(config *UpgraderConfig) *SessionManager {
 func (s *SessionManager) run(done <-chan struct{}) {
 	defer func() {
 		for session := range s.sessions {
-			session.scraper.unsubscribeSession <- session
+			scraper.unsubscribeSession <- session
 
 			delete(s.sessions, session)
 			close(session.send)
@@ -50,7 +49,7 @@ func (s *SessionManager) run(done <-chan struct{}) {
 			s.sessions[session] = true
 		case session := <-s.unregister:
 			if _, ok := s.sessions[session]; ok {
-				session.scraper.unsubscribeSession <- session
+				scraper.unsubscribeSession <- session
 
 				delete(s.sessions, session)
 				close(session.send)
@@ -59,15 +58,15 @@ func (s *SessionManager) run(done <-chan struct{}) {
 	}
 }
 
-func serveWs(config *Config, scraper *Scraper, manager *SessionManager, w http.ResponseWriter, r *http.Request) {
+func serveWs(scraper *Scraper, w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		sessionLog.Error("upgrade", zap.Error(err))
 		return
 	}
 
-	session := newSession(&config.session, scraper, manager, conn)
-	manager.register <- session
+	session := newSession(scraper, conn)
+	sessionManager.register <- session
 
 	// Allow collection of memory referenced by the caller by doing all work in
 	// new goroutines.

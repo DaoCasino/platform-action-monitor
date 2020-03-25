@@ -10,6 +10,7 @@ type methodResult interface{}
 type methodExecutor interface {
 	isValid() bool
 	execute(session *Session) (methodResult, error)
+	after(session *Session)
 }
 
 const (
@@ -18,18 +19,20 @@ const (
 )
 
 type methodSubscribeParams struct {
-	Topic  string `json:"topic"`
-	Offset int    `json:"offset"`
+	Topic string `json:"topic"`
+	// Count  int    `json:"count"`
+	Offset uint64 `json:"offset"`
 }
 
 func (p *methodSubscribeParams) isValid() bool {
-	return len(p.Topic) > 0 && p.Offset >= 0
+	return p.Topic != ""
 }
 
 func (p *methodSubscribeParams) execute(session *Session) (methodResult, error) {
 	methodLog.Debug("> subscribe",
 		zap.String("topic", p.Topic),
-		zap.Int("offset", p.Offset),
+		zap.Uint64("offset", p.Offset),
+		// zap.Int("count", p.Count),
 		zap.String("session.id", session.ID))
 
 	message := &ScraperSubscribeMessage{
@@ -39,11 +42,13 @@ func (p *methodSubscribeParams) execute(session *Session) (methodResult, error) 
 	}
 
 	session.setOffset(p.Offset)
-
-	session.scraper.subscribe <- message
+	scraper.subscribe <- message
 	response := <-message.response
-
 	return response.result, response.err
+}
+
+func (p *methodSubscribeParams) after(session *Session) {
+	session.sendMessages(p.Topic, p.Offset)
 }
 
 type methodUnsubscribeParams struct {
@@ -51,7 +56,7 @@ type methodUnsubscribeParams struct {
 }
 
 func (p *methodUnsubscribeParams) isValid() bool {
-	return len(p.Topic) > 0
+	return p.Topic != ""
 }
 
 func (p *methodUnsubscribeParams) execute(session *Session) (methodResult, error) {
@@ -63,10 +68,14 @@ func (p *methodUnsubscribeParams) execute(session *Session) (methodResult, error
 		response: make(chan *ScraperResponseMessage),
 	}
 
-	session.scraper.unsubscribe <- message
+	scraper.unsubscribe <- message
 	response := <-message.response
 
 	return response.result, response.err
+}
+
+func (p *methodUnsubscribeParams) after(session *Session) {
+	methodLog.Debug("after unsubscribe")
 }
 
 func methodExecutorFactory(method string) (methodExecutor, error) {

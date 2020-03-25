@@ -1,50 +1,81 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/gorilla/websocket"
+	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/lucsky/cuid"
+	"github.com/tevino/abool"
 	"go.uber.org/zap"
 	"time"
-
-	"github.com/gorilla/websocket"
-	"github.com/lucsky/cuid"
 )
+
+type Queue struct {
+	flag   *abool.AtomicBool
+	events []*Event
+}
+
+func newQueue() *Queue {
+	return &Queue{abool.New(), make([]*Event, 0)}
+}
+
+func (q *Queue) open() {
+	q.flag.Set()
+}
+
+func (q *Queue) isOpen() bool {
+	return q.flag.IsSet()
+}
+
+func (q *Queue) add(event *Event) {
+	q.events = append(q.events, event)
+}
+
+func (q *Queue) clean() {
+	q.events = q.events[:0]
+}
 
 type Session struct {
 	ID     string
-	offset int
+	offset uint64
 
-	config  *SessionConfig
 	scraper *Scraper
-	manager *SessionManager
 
 	// The websocket connection.
 	conn *websocket.Conn
 
 	// Buffered channel of outbound messages.
-	send chan []byte
+	send          chan []byte
+	queue         chan *Event
+	queueMessages *Queue
 }
 
-func newSession(config *SessionConfig, scraper *Scraper, manager *SessionManager, conn *websocket.Conn) *Session {
+//func newSession(config *SessionConfig, scraper *Scraper, manager *SessionManager, conn *websocket.Conn) *Session {
+
+func newSession(scraper *Scraper, conn *websocket.Conn) *Session {
 	ID := cuid.New()
 	sessionLog.Debug("new session", zap.String("ID", ID))
 
 	return &Session{
-		ID:      ID,
-		config:  config,
-		scraper: scraper,
-		manager: manager,
-		conn:    conn,
-		send:    make(chan []byte, 512)}
+		ID:            ID,
+		scraper:       scraper,
+		conn:          conn,
+		send:          make(chan []byte, 512),
+		queue:         make(chan *Event, 32),
+		queueMessages: newQueue(),
+	}
 }
 
-func (s *Session) setOffset(offset int) {
+func (s *Session) setOffset(offset uint64) {
 	s.offset = offset
 }
 
 func (s *Session) readPump() {
+
 	defer func() {
-		s.manager.unregister <- s
+		sessionManager.unregister <- s
 		if err := s.conn.Close(); err != nil {
 			// sessionLog.Error("connection close error", zap.String("session.id", s.ID), zap.Error(err))
 		}
@@ -52,9 +83,9 @@ func (s *Session) readPump() {
 		sessionLog.Debug("readPump close", zap.String("session.id", s.ID))
 	}()
 
-	s.conn.SetReadLimit(s.config.maxMessageSize)
-	s.conn.SetReadDeadline(time.Now().Add(s.config.pongWait))
-	s.conn.SetPongHandler(func(string) error { s.conn.SetReadDeadline(time.Now().Add(s.config.pongWait)); return nil })
+	s.conn.SetReadLimit(config.session.maxMessageSize)
+	s.conn.SetReadDeadline(time.Now().Add(config.session.pongWait))
+	s.conn.SetPongHandler(func(string) error { s.conn.SetReadDeadline(time.Now().Add(config.session.pongWait)); return nil })
 	for {
 		_, message, err := s.conn.ReadMessage()
 		if err != nil {
@@ -72,7 +103,7 @@ func (s *Session) readPump() {
 }
 
 func (s *Session) writePump() {
-	ticker := time.NewTicker(s.config.pingPeriod)
+	ticker := time.NewTicker(config.session.pingPeriod)
 	defer func() {
 		ticker.Stop()
 		_ = s.conn.Close()
@@ -80,8 +111,15 @@ func (s *Session) writePump() {
 	}()
 	for {
 		select {
+		case event := <-s.queue:
+			sessionLog.Debug("add event in queue", zap.String("session.id", s.ID), zap.Uint64("event.offset", event.Offset))
+			s.queueMessages.add(event)
+			if s.queueMessages.isOpen() {
+				s.sendQueueMessages()
+			}
+
 		case message, ok := <-s.send:
-			_ = s.conn.SetWriteDeadline(time.Now().Add(s.config.writeWait))
+			_ = s.conn.SetWriteDeadline(time.Now().Add(config.session.writeWait))
 			if !ok {
 				// The session closed the channel.
 				if err := s.conn.WriteMessage(websocket.CloseMessage, []byte{}); err != nil {
@@ -107,7 +145,7 @@ func (s *Session) writePump() {
 			}
 
 		case <-ticker.C:
-			_ = s.conn.SetWriteDeadline(time.Now().Add(s.config.writeWait))
+			_ = s.conn.SetWriteDeadline(time.Now().Add(config.session.writeWait))
 			if err := s.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				sessionLog.Error("ping message error", zap.String("session.id", s.ID), zap.Error(err))
 				return
@@ -151,6 +189,8 @@ func parseRequest(message []byte, response *ResponseMessage) (methodExecutor, er
 
 func (s *Session) process(message []byte) error {
 	response := newResponseMessage()
+	method, err := parseRequest(message, response)
+
 	defer func() {
 		raw, err := json.Marshal(response)
 		if err != nil {
@@ -158,9 +198,12 @@ func (s *Session) process(message []byte) error {
 			return
 		}
 		s.send <- raw
+
+		if method != nil {
+			method.after(s)
+		}
 	}()
 
-	method, err := parseRequest(message, response)
 	if err != nil {
 		return err
 	}
@@ -189,4 +232,85 @@ func (s *Session) process(message []byte) error {
 	)
 
 	return nil
+}
+
+func (s *Session) sendMessages(topic string, offset uint64) {
+	// TODO: нужно замокать базу
+	sessionLog.Debug("after subscribe send events", zap.String("session.id", s.ID), zap.Uint64("offset", offset))
+
+	eventType, err := getEventTypeFromTopic(topic)
+	if err != nil {
+		sessionLog.Error("error get event type", zap.String("topic", topic), zap.Error(err))
+		return
+	}
+
+	var conn *pgxpool.Conn
+	conn, err = pool.Acquire(context.Background())
+	if err != nil {
+		sessionLog.Error("pool acquire connection error", zap.Error(err))
+		return
+	}
+
+	defer func() {
+		conn.Release()
+
+		s.sendQueueMessages()
+		s.queueMessages.open() // TODO: <-
+	}()
+
+	var events []*Event
+	events, err = fetchAllEvents(conn.Conn(), offset, 0)
+	if err != nil {
+		sessionLog.Error("fetch all events error", zap.Error(err))
+		return
+	}
+
+	if len(events) > 0 {
+		filteredEvents := filterEventsByEventType(events, eventType)
+
+		if len(filteredEvents) > 0 {
+			eventMessage, err := newEventMessage(filteredEvents)
+			if err != nil {
+				sessionLog.Error("error create eventMessage", zap.Error(err))
+				return
+			}
+
+			select {
+			case s.send <- eventMessage:
+			default:
+				sessionLog.Error("error send eventMessage")
+				return
+			}
+		}
+
+		s.setOffset(events[len(events)-1].Offset)
+	}
+}
+
+func (s *Session) sendQueueMessages() {
+	sessionLog.Debug("sendQueueMessages")
+
+	events, err := filterEventsFromOffset(s.queueMessages.events, s.offset)
+	if err != nil {
+		sessionLog.Error("filterEventsFromOffset", zap.Error(err))
+	}
+
+	if len(events) == 0 {
+		return
+	}
+
+	var eventMessage []byte
+	eventMessage, err = newEventMessage(events)
+	if err != nil {
+		sessionLog.Error("error create eventMessage", zap.Error(err))
+		return
+	}
+	s.queueMessages.clean()
+
+	select {
+	case s.send <- eventMessage:
+	default:
+		sessionLog.Error("error send eventMessage")
+		return
+	}
 }
