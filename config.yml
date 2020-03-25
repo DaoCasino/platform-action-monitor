@@ -1,18 +1,19 @@
-service:
-  addr: :8888 # host:port
-
+database:
+  url: postgres://test:test@localhost/test
+  filter:
+    name:
+    account:
+server:
+  addr: :8888
 session:
-  writeWait: 10s   # Time allowed to write a message to the client.
-  pongWait: 60s # Time allowed to read the next pong message from the client.
-  maxMessageSize: 4096 # Maximum message size allowed from client.
-
-upgrader: # websocket upgrader
+  writeWait: 10s
+  pongWait: 60s
+  maxMessageSize: 4096
+upgrader:
   readBufferSize: 1024
   writeBufferSize: 1024
-
 abi:
   main: ../contract.abi
   events:
-    0: ../contract.abi
-    1: ../contract.abi
-    150: ../contract.abi
+    0: ../event.abi
+    1: ../event.abi

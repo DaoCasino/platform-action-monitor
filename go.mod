@@ -14,4 +14,5 @@ require (
 	github.com/stretchr/testify v1.5.1
 	github.com/tevino/abool v0.0.0-20170917061928-9b9efcf221b5
 	go.uber.org/zap v1.14.0
+	gopkg.in/yaml.v2 v2.2.2
 )
