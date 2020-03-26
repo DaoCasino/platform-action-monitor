@@ -34,7 +34,7 @@ func (q *Queue) add(event *Event) {
 }
 
 func (q *Queue) clean() {
-	q.events = q.events[:0]
+	q.events = q.events[:0] // TODO: cap() save
 }
 
 type Session struct {

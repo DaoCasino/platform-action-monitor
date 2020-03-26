@@ -185,3 +185,46 @@ func TestSessionSendQueueMessages(t *testing.T) {
 	wg.Wait()
 	assert.Equal(t, 0, len(session.queueMessages.events))
 }
+
+func TestSessionSendMessages(t *testing.T) {
+	const numEvents = 10
+
+	session := newSession(nil, nil)
+	session.setOffset(0)
+
+	events := make([]*Event, 0)
+
+	for i := 0; i < numEvents; i++ {
+		event := newRandomEvent()
+		event.Offset = uint64(i)
+		events = append(events, event)
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case data := <-session.send:
+				responseMessage := new(ResponseMessage)
+				eventMessage := new(EventMessage)
+
+				err := json.Unmarshal(data, responseMessage)
+				require.NoError(t, err)
+
+				err = json.Unmarshal(responseMessage.Result, &eventMessage)
+				require.NoError(t, err)
+
+				assert.Equal(t, numEvents, len(eventMessage.Events))
+				return
+			}
+		}
+	}()
+
+	eventMessage, err := newEventMessage(events)
+	require.NoError(t, err)
+	session.send <- eventMessage
+
+	wg.Wait()
+}
