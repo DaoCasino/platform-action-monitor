@@ -6,3 +6,4 @@ nodeos.log
 **/node_modules/
 **/.DS_Store
 vendor/
+loadtest.yml
