@@ -46,7 +46,7 @@ func filterEventsByEventType(events []*Event, eventType int) []*Event {
 
 func filterEventsFromOffset(events []*Event, offset uint64) ([]*Event, error) {
 	for index, event := range events {
-		if event.Offset > offset {
+		if event.Offset >= offset {
 			return events[index:], nil
 		}
 	}

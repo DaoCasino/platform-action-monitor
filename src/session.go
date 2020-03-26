@@ -235,7 +235,6 @@ func (s *Session) process(message []byte) error {
 }
 
 func (s *Session) sendMessages(topic string, offset uint64) {
-	// TODO: нужно замокать базу
 	sessionLog.Debug("after subscribe send events", zap.String("session.id", s.ID), zap.Uint64("offset", offset))
 
 	eventType, err := getEventTypeFromTopic(topic)
