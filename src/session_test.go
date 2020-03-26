@@ -2,8 +2,8 @@ package main
 
 import (
 	"encoding/json"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gotest.tools/assert"
 	"math/rand"
 	"sync"
 	"testing"
@@ -94,7 +94,7 @@ func TestSessionProcess(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			session.process([]byte(tc.request))
+			_ = session.process([]byte(tc.request))
 
 			// <-session.send
 
