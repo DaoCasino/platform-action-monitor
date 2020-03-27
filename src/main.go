@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 // context DeadLine timeout
@@ -61,6 +62,8 @@ func main() {
 	router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		serveWs(scraper, w, r)
 	})
+
+	router.Handle("/metrics", promhttp.Handler())
 
 	srv := &http.Server{
 		Addr:    config.serverAddress,

@@ -1,8 +1,14 @@
 package main
 
 import (
+	"encoding/json"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"math/rand"
+	"sync"
 	"testing"
+	"time"
+	"unsafe"
 )
 
 func setupSessionTestCase(t *testing.T) (*Session, func(t *testing.T)) {
@@ -88,7 +94,7 @@ func TestSessionProcess(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			session.process([]byte(tc.request))
+			_ = session.process([]byte(tc.request))
 
 			// <-session.send
 
@@ -98,4 +104,127 @@ func TestSessionProcess(t *testing.T) {
 			}
 		})
 	}
+}
+
+const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+const (
+	letterIdxBits = 6                    // 6 bits to represent a letter index
+	letterIdxMask = 1<<letterIdxBits - 1 // All 1-bits, as many as letterIdxBits
+	letterIdxMax  = 63 / letterIdxBits   // # of letter indices fitting in 63 bits
+)
+
+var src = rand.NewSource(time.Now().UnixNano())
+
+func RandStringBytesMaskImprSrcUnsafe(n int) string {
+	b := make([]byte, n)
+	// A src.Int63() generates 63 random bits, enough for letterIdxMax characters!
+	for i, cache, remain := n-1, src.Int63(), letterIdxMax; i >= 0; {
+		if remain == 0 {
+			cache, remain = src.Int63(), letterIdxMax
+		}
+		if idx := int(cache & letterIdxMask); idx < len(letterBytes) {
+			b[i] = letterBytes[idx]
+			i--
+		}
+		cache >>= letterIdxBits
+		remain--
+	}
+
+	return *(*string)(unsafe.Pointer(&b))
+}
+
+func newRandomEvent() *Event {
+	return &Event{
+		Sender:    RandStringBytesMaskImprSrcUnsafe(6),
+		CasinoID:  RandStringBytesMaskImprSrcUnsafe(6),
+		GameID:    RandStringBytesMaskImprSrcUnsafe(6),
+		RequestID: RandStringBytesMaskImprSrcUnsafe(6),
+		EventType: 0,
+		Data:      nil,
+	}
+}
+
+func TestSessionSendQueueMessages(t *testing.T) {
+	const numEvents = 10
+
+	session := newSession(nil, nil)
+	session.setOffset(0)
+
+	for i := 0; i < numEvents; i++ {
+		event := newRandomEvent()
+		event.Offset = uint64(i)
+		session.queueMessages.add(event)
+	}
+
+	assert.Equal(t, numEvents, len(session.queueMessages.events))
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		for {
+			select {
+			case data := <-session.send:
+				responseMessage := new(ResponseMessage)
+				eventMessage := new(EventMessage)
+
+				err := json.Unmarshal(data, responseMessage)
+				require.NoError(t, err)
+
+				err = json.Unmarshal(responseMessage.Result, &eventMessage)
+				require.NoError(t, err)
+
+				assert.Equal(t, numEvents, len(eventMessage.Events))
+				return
+			}
+		}
+	}()
+
+	session.sendQueueMessages()
+	wg.Wait()
+	assert.Equal(t, 0, len(session.queueMessages.events))
+}
+
+func TestSessionSendMessages(t *testing.T) {
+	const numEvents = 10
+
+	session := newSession(nil, nil)
+	session.setOffset(0)
+
+	events := make([]*Event, 0)
+
+	for i := 0; i < numEvents; i++ {
+		event := newRandomEvent()
+		event.Offset = uint64(i)
+		events = append(events, event)
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case data := <-session.send:
+				responseMessage := new(ResponseMessage)
+				eventMessage := new(EventMessage)
+
+				err := json.Unmarshal(data, responseMessage)
+				require.NoError(t, err)
+
+				err = json.Unmarshal(responseMessage.Result, &eventMessage)
+				require.NoError(t, err)
+
+				assert.Equal(t, numEvents, len(eventMessage.Events))
+				return
+			}
+		}
+	}()
+
+	eventMessage, err := newEventMessage(events)
+	require.NoError(t, err)
+	session.send <- eventMessage
+
+	wg.Wait()
 }
