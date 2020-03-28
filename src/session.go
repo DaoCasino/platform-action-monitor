@@ -276,6 +276,7 @@ func (s *Session) sendMessages(topic string, offset uint64) {
 
 			select {
 			case s.send <- eventMessage:
+				eventsTotal.Add(float64(len(filteredEvents)))
 			default:
 				sessionLog.Error("error send eventMessage")
 				return
@@ -308,6 +309,7 @@ func (s *Session) sendQueueMessages() {
 
 	select {
 	case s.send <- eventMessage:
+		eventsTotal.Add(float64(len(events)))
 	default:
 		sessionLog.Error("error send eventMessage")
 		return

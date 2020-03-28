@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 	"net/http"
 	"os"
@@ -19,11 +20,22 @@ import (
 const withTimeout = 5 * time.Second
 
 // Globals
-var config *Config
-var abiDecoder *AbiDecoder
-var pool *pgxpool.Pool
-var scraper *Scraper
-var sessionManager *SessionManager
+var (
+	config         *Config
+	abiDecoder     *AbiDecoder
+	pool           *pgxpool.Pool
+	scraper        *Scraper
+	sessionManager *SessionManager
+
+	eventsTotal = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "events_total",
+		})
+)
+
+func init() {
+	prometheus.MustRegister(eventsTotal)
+}
 
 func main() {
 	configFile := flag.String("config", "", "config file")
