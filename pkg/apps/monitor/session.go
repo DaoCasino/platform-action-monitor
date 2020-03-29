@@ -1,15 +1,16 @@
-package main
+package monitor
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
+
 	"github.com/gorilla/websocket"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/lucsky/cuid"
 	"github.com/tevino/abool"
 	"go.uber.org/zap"
-	"time"
 )
 
 type Queue struct {
@@ -75,7 +76,7 @@ func (s *Session) setOffset(offset uint64) {
 func (s *Session) readPump() {
 
 	defer func() {
-		sessionManager.unregister <- s
+		platform_action_monitor.sessionManager.unregister <- s
 		if err := s.conn.Close(); err != nil {
 			// sessionLog.Error("connection close error", zap.String("session.id", s.ID), zap.Error(err))
 		}
@@ -83,9 +84,9 @@ func (s *Session) readPump() {
 		sessionLog.Debug("readPump close", zap.String("session.id", s.ID))
 	}()
 
-	s.conn.SetReadLimit(config.session.maxMessageSize)
-	s.conn.SetReadDeadline(time.Now().Add(config.session.pongWait))
-	s.conn.SetPongHandler(func(string) error { s.conn.SetReadDeadline(time.Now().Add(config.session.pongWait)); return nil })
+	s.conn.SetReadLimit(platform_action_monitor.config.session.maxMessageSize)
+	s.conn.SetReadDeadline(time.Now().Add(platform_action_monitor.config.session.pongWait))
+	s.conn.SetPongHandler(func(string) error { s.conn.SetReadDeadline(time.Now().Add(platform_action_monitor.config.session.pongWait)); return nil })
 	for {
 		_, message, err := s.conn.ReadMessage()
 		if err != nil {
@@ -103,7 +104,7 @@ func (s *Session) readPump() {
 }
 
 func (s *Session) writePump() {
-	ticker := time.NewTicker(config.session.pingPeriod)
+	ticker := time.NewTicker(platform_action_monitor.config.session.pingPeriod)
 	defer func() {
 		ticker.Stop()
 		_ = s.conn.Close()
@@ -119,7 +120,7 @@ func (s *Session) writePump() {
 			}
 
 		case message, ok := <-s.send:
-			_ = s.conn.SetWriteDeadline(time.Now().Add(config.session.writeWait))
+			_ = s.conn.SetWriteDeadline(time.Now().Add(platform_action_monitor.config.session.writeWait))
 			if !ok {
 				// The session closed the channel.
 				if err := s.conn.WriteMessage(websocket.CloseMessage, []byte{}); err != nil {
@@ -145,7 +146,7 @@ func (s *Session) writePump() {
 			}
 
 		case <-ticker.C:
-			_ = s.conn.SetWriteDeadline(time.Now().Add(config.session.writeWait))
+			_ = s.conn.SetWriteDeadline(time.Now().Add(platform_action_monitor.config.session.writeWait))
 			if err := s.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				sessionLog.Error("ping message error", zap.String("session.id", s.ID), zap.Error(err))
 				return
@@ -179,7 +180,7 @@ func parseRequest(message []byte, response *ResponseMessage) (methodExecutor, er
 		return nil, err
 	}
 
-	if !method.isValid() {
+	if !isValid() {
 		response.invalidParams()
 		return nil, fmt.Errorf("invalid params")
 	}
@@ -200,7 +201,7 @@ func (s *Session) process(message []byte) error {
 		s.send <- raw
 
 		if method != nil {
-			method.after(s)
+			after(s)
 		}
 	}()
 
@@ -208,7 +209,7 @@ func (s *Session) process(message []byte) error {
 		return err
 	}
 
-	result, err := method.execute(s)
+	result, err := execute(s)
 	if err != nil {
 		response.setError(err)
 
@@ -244,7 +245,7 @@ func (s *Session) sendMessages(topic string, offset uint64) {
 	}
 
 	var conn *pgxpool.Conn
-	conn, err = pool.Acquire(context.Background())
+	conn, err = platform_action_monitor.pool.Acquire(context.Background())
 	if err != nil {
 		sessionLog.Error("pool acquire connection error", zap.Error(err))
 		return

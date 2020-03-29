@@ -1,14 +1,15 @@
-package main
+package monitor
 
 import (
 	"bytes"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"testing"
+
 	"github.com/eoscanada/eos-go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 type TestEventData struct {
@@ -56,7 +57,7 @@ func TestDecodeStruct(t *testing.T) {
 
 func TestAbiDecoder(t *testing.T) {
 	config := newConfig()
-	decoder, err := newAbiDecoder(&config.abi)
+	decoder, err := NewAbiDecoder(&config.abi)
 	require.NoError(t, err)
 
 	data := createStructData(t, 1, 2)

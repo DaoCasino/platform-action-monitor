@@ -1,10 +1,11 @@
-package main
+package monitor
 
 import (
 	"encoding/json"
-	"go.uber.org/zap"
 	"strconv"
 	"strings"
+
+	"go.uber.org/zap"
 )
 
 type Event struct {

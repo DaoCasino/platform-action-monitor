@@ -1,4 +1,4 @@
-package main
+package monitor
 
 import (
 	"fmt"
@@ -6,14 +6,14 @@ import (
 	"go.uber.org/zap"
 )
 
-var mainLog = zap.NewNop()
+var MainLog = zap.NewNop()
 var sessionLog = zap.NewNop()
 var scraperLog = zap.NewNop()
 var methodLog = zap.NewNop()
 var decoderLog = zap.NewNop()
 
 func EnableDebugLogging(l *zap.Logger) {
-	mainLog = l
+	MainLog = l
 	sessionLog = l
 	scraperLog = l
 	methodLog = l

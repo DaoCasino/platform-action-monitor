@@ -1,9 +1,11 @@
-package main
+package monitor
 
 import (
+	"context"
+	"net/http"
+
 	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
-	"net/http"
 )
 
 var upgrader websocket.Upgrader
@@ -14,10 +16,10 @@ type SessionManager struct {
 	unregister chan *Session
 }
 
-func newSessionManager() *SessionManager {
+func NewSessionManager() *SessionManager {
 	upgrader = websocket.Upgrader{
-		ReadBufferSize:  config.upgrader.readBufferSize,
-		WriteBufferSize: config.upgrader.writeBufferSize,
+		ReadBufferSize:  platform_action_monitor.config.upgrader.readBufferSize,
+		WriteBufferSize: platform_action_monitor.config.upgrader.writeBufferSize,
 		CheckOrigin:     func(r *http.Request) bool { return true },
 	}
 
@@ -28,10 +30,10 @@ func newSessionManager() *SessionManager {
 	}
 }
 
-func (s *SessionManager) run(done <-chan struct{}) {
+func (s *SessionManager) Run(ctx context.Context) error {
 	defer func() {
 		for session := range s.sessions {
-			scraper.unsubscribeSession <- session
+			platform_action_monitor.scraper.unsubscribeSession <- session
 
 			delete(s.sessions, session)
 			close(session.send)
@@ -43,13 +45,13 @@ func (s *SessionManager) run(done <-chan struct{}) {
 
 	for {
 		select {
-		case <-done:
-			return
+		case <-ctx.Done():
+			return ctx.Err()
 		case session := <-s.register:
 			s.sessions[session] = true
 		case session := <-s.unregister:
 			if _, ok := s.sessions[session]; ok {
-				scraper.unsubscribeSession <- session
+				platform_action_monitor.scraper.unsubscribeSession <- session
 
 				delete(s.sessions, session)
 				close(session.send)
@@ -58,7 +60,7 @@ func (s *SessionManager) run(done <-chan struct{}) {
 	}
 }
 
-func serveWs(scraper *Scraper, w http.ResponseWriter, r *http.Request) {
+func ServeWs(scraper *Scraper, w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		sessionLog.Error("upgrade", zap.Error(err))
@@ -66,7 +68,7 @@ func serveWs(scraper *Scraper, w http.ResponseWriter, r *http.Request) {
 	}
 
 	session := newSession(scraper, conn)
-	sessionManager.register <- session
+	platform_action_monitor.sessionManager.register <- session
 
 	// Allow collection of memory referenced by the caller by doing all work in
 	// new goroutines.

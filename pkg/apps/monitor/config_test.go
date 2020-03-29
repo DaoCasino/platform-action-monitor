@@ -1,11 +1,12 @@
-package main
+package monitor
 
 import (
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const testConfigFile = `
@@ -32,7 +33,7 @@ abi:
 
 func TestConfigFile(t *testing.T) {
 	reader := strings.NewReader(testConfigFile)
-	configFile, err := newConfigFile(reader)
+	configFile, err := NewConfigFile(reader)
 	require.NoError(t, err)
 
 	assert.Equal(t, "postgres://test:test@localhost/testCase", configFile.Database.Url)

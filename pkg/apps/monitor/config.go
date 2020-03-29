@@ -1,4 +1,4 @@
-package main
+package monitor
 
 import (
 	"gopkg.in/yaml.v2"
@@ -70,16 +70,16 @@ type DatabaseFilters struct {
 }
 
 type DatabaseConfig struct {
-	url    string
+	Url    string
 	filter DatabaseFilters
 }
 
 type Config struct {
-	db            DatabaseConfig
-	serverAddress string
+	Db            DatabaseConfig
+	ServerAddress string
 	session       SessionConfig
 	upgrader      UpgraderConfig
-	abi           AbiConfig
+	Abi           AbiConfig
 }
 
 type ConfigFile struct {
@@ -114,14 +114,14 @@ type ConfigFile struct {
 
 func newDefaultConfig() *Config {
 	config := &Config{
-		db:            DatabaseConfig{defaultDatabaseUrl, DatabaseFilters{nil, nil}},
-		serverAddress: defaultAddr,
+		Db:            DatabaseConfig{defaultDatabaseUrl, DatabaseFilters{nil, nil}},
+		ServerAddress: defaultAddr,
 		session:       SessionConfig{defaultWriteWait, defaultPongWait, defaultPingPeriod, defaultMaxMessageSize},
 		upgrader:      UpgraderConfig{defaultReadBufferSize, defaultWriteBufferSize},
-		abi:           AbiConfig{main: defaultContractABI, events: make(map[int]string)},
+		Abi:           AbiConfig{main: defaultContractABI, events: make(map[int]string)},
 	}
 
-	config.abi.events[0] = defaultEventABI
+	config.Abi.events[0] = defaultEventABI
 
 	return config
 }
@@ -138,31 +138,31 @@ func (c *Config) assign(target *ConfigFile) (err error) {
 	c.session.pingPeriod = (c.session.pongWait * 9) / 10
 	c.session.maxMessageSize = target.Session.MaxMessageSize
 
-	c.db.url = target.Database.Url
+	c.Db.Url = target.Database.Url
 
 	if target.Database.Filter.Name == "" {
-		c.db.filter.actName = nil
+		c.Db.filter.actName = nil
 	} else {
-		c.db.filter.actName = &target.Database.Filter.Name
+		c.Db.filter.actName = &target.Database.Filter.Name
 	}
 
 	if target.Database.Filter.Account == "" {
-		c.db.filter.actAccount = nil
+		c.Db.filter.actAccount = nil
 	} else {
-		c.db.filter.actAccount = &target.Database.Filter.Account
+		c.Db.filter.actAccount = &target.Database.Filter.Account
 	}
 
-	c.abi.main = target.Abi.Main
-	c.abi.events = target.Abi.Events
+	c.Abi.main = target.Abi.Main
+	c.Abi.events = target.Abi.Events
 
 	c.upgrader.writeBufferSize = target.Upgrader.WriteBufferSize
 	c.upgrader.readBufferSize = target.Upgrader.ReadBufferSize
 
-	c.serverAddress = target.Server.Addr
+	c.ServerAddress = target.Server.Addr
 	return
 }
 
-func (c *Config) loadFromFile(filename *string) error {
+func (c *Config) LoadFromFile(filename *string) error {
 	f, err := os.Open(*filename)
 	if err != nil {
 		return err
@@ -170,7 +170,7 @@ func (c *Config) loadFromFile(filename *string) error {
 	defer f.Close()
 
 	var configFile *ConfigFile
-	configFile, err = newConfigFile(f)
+	configFile, err = NewConfigFile(f)
 
 	if err != nil {
 		return err
@@ -179,13 +179,13 @@ func (c *Config) loadFromFile(filename *string) error {
 	return c.assign(configFile)
 }
 
-func newConfigFile(reader io.Reader) (*ConfigFile, error) {
+func NewConfigFile(reader io.Reader) (*ConfigFile, error) {
 	config := new(ConfigFile)
 	decoder := yaml.NewDecoder(reader)
 	err := decoder.Decode(config)
 	return config, err
 }
 
-func newConfig() *Config {
+func NewConfig() *Config {
 	return newDefaultConfig()
 }

@@ -1,10 +1,11 @@
-package main
+package monitor
 
 import (
 	"fmt"
+	"os"
+
 	"github.com/eoscanada/eos-go"
 	"go.uber.org/zap"
-	"os"
 )
 
 const (
@@ -57,7 +58,7 @@ func (d *Decoder) decodeStruct(data []byte, structName string) ([]byte, error) {
 	return bytes, nil
 }
 
-func newAbiDecoder(c *AbiConfig) (a *AbiDecoder, e error) {
+func NewAbiDecoder(c *AbiConfig) (a *AbiDecoder, e error) {
 	a = new(AbiDecoder)
 	a.main, e = newDecoder(c.main)
 	if e != nil {

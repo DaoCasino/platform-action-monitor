@@ -1,39 +1,40 @@
-package main
+package monitor
 
 import (
 	"encoding/json"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"math/rand"
 	"sync"
 	"testing"
 	"time"
 	"unsafe"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func setupSessionTestCase(t *testing.T) (*Session, func(t *testing.T)) {
 	var err error
 
-	config = newConfig()
-	scraper = newScraper()
-	sessionManager = newSessionManager()
+	platform_action_monitor.config = newConfig()
+	platform_action_monitor.scraper = NewScraper()
+	platform_action_monitor.sessionManager = NewSessionManager()
 
-	abiDecoder, err = newAbiDecoder(&config.abi)
+	platform_action_monitor.abiDecoder, err = NewAbiDecoder(&platform_action_monitor.config.abi)
 	require.NoError(t, err)
 
 	done := make(chan struct{})
-	go sessionManager.run(done)
+	go platform_action_monitor.sessionManager.run(done)
 	t.Log("session manager running")
-	go scraper.run(done)
+	go platform_action_monitor.scraper.run(done)
 	t.Log("scraper running")
 
-	session := newSession(scraper, nil)
-	sessionManager.register <- session
+	session := newSession(platform_action_monitor.scraper, nil)
+	platform_action_monitor.sessionManager.register <- session
 
 	t.Log("session register")
 
 	return session, func(t *testing.T) {
-		sessionManager.unregister <- session
+		platform_action_monitor.sessionManager.unregister <- session
 		t.Log("session unregister")
 		close(done)
 		t.Log("scraper stopped")

@@ -1,12 +1,13 @@
-package main
+package monitor
 
 import (
 	"context"
 	"fmt"
-	"github.com/jackc/pgx/v4"
-	"go.uber.org/zap"
 	"strconv"
 	"time"
+
+	"github.com/jackc/pgx/v4"
+	"go.uber.org/zap"
 )
 
 type ScraperSubscribeMessage struct {
@@ -40,7 +41,7 @@ type Scraper struct {
 	broadcast          chan *ScraperBroadcastMessage
 }
 
-func newScraper() *Scraper {
+func NewScraper() *Scraper {
 	return &Scraper{
 		topics:             make(map[string]map[*Session]bool),
 		subscribe:          make(chan *ScraperSubscribeMessage),
@@ -50,20 +51,20 @@ func newScraper() *Scraper {
 	}
 }
 
-func (s *Scraper) run(done <-chan struct{}) {
+func (s *Scraper) Run(ctx context.Context) error {
 	defer func() {
 		scraperLog.Info("scraper stopped")
 	}()
 	scraperLog.Info("scraper started")
 
-	if pool != nil {
-		go scraper.listen(done)
+	if platform_action_monitor.pool != nil {
+		go platform_action_monitor.scraper.listen(ctx)
 	}
 
 	for {
 		select {
-		case <-done:
-			return
+		case <-ctx.Done():
+			return ctx.Err()
 
 		case session := <-s.unsubscribeSession:
 			for name, topicSessions := range s.topics {
@@ -155,8 +156,8 @@ func (s *Scraper) handleNotify(conn *pgx.Conn, offset uint64) {
 	}
 }
 
-func (s *Scraper) listen(done <-chan struct{}) {
-	conn, err := pool.Acquire(context.Background())
+func (s *Scraper) listen(ctx context.Context) {
+	conn, err := platform_action_monitor.pool.Acquire(context.Background())
 	if err != nil {
 		scraperLog.Error("pool acquire connection error", zap.Error(err))
 	}
@@ -176,7 +177,7 @@ func (s *Scraper) listen(done <-chan struct{}) {
 
 	for {
 		select {
-		case <-done:
+		case <-ctx.Done():
 			return
 		default:
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)

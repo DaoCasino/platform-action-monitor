@@ -1,4 +1,4 @@
-package main
+package monitor
 
 import (
 	"github.com/jackc/pgx/v4"
@@ -11,7 +11,7 @@ func fetchEvent(conn DatabaseConnect, offset uint64) (*Event, error) {
 	switch err {
 	case nil:
 		// ok
-		if event, err := abiDecoder.Decode(rows.actData); err == nil {
+		if event, err := platform_action_monitor.abiDecoder.Decode(rows.actData); err == nil {
 			event.Offset = rows.offset
 			return event, nil
 		}
@@ -28,7 +28,7 @@ func fetchEvent(conn DatabaseConnect, offset uint64) (*Event, error) {
 }
 
 func fetchAllEvents(conn DatabaseConnect, offset uint64, count uint) ([]*Event, error) {
-	filter := config.db.filter
+	filter := platform_action_monitor.config.db.filter
 	events := make([]*Event, 0)
 	dataset, err := fetchAllActionData(conn, offset, count, &filter)
 	if err != nil {
@@ -36,7 +36,7 @@ func fetchAllEvents(conn DatabaseConnect, offset uint64, count uint) ([]*Event, 
 	}
 
 	for _, data := range dataset {
-		if event, err := abiDecoder.Decode(data.actData); err == nil {
+		if event, err := platform_action_monitor.abiDecoder.Decode(data.actData); err == nil {
 			event.Offset = data.offset
 			events = append(events, event)
 		}

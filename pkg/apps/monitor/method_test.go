@@ -1,9 +1,10 @@
-package main
+package monitor
 
 import (
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 func TestMethodExecutorFactory(t *testing.T) {

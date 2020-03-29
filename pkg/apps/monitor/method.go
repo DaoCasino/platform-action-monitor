@@ -1,7 +1,8 @@
-package main
+package monitor
 
 import (
 	"fmt"
+
 	"go.uber.org/zap"
 )
 
@@ -42,7 +43,7 @@ func (p *methodSubscribeParams) execute(session *Session) (methodResult, error) 
 	}
 
 	session.setOffset(p.Offset)
-	scraper.subscribe <- message
+	platform_action_monitor.scraper.subscribe <- message
 	response := <-message.response
 	return response.result, response.err
 }
@@ -68,7 +69,7 @@ func (p *methodUnsubscribeParams) execute(session *Session) (methodResult, error
 		response: make(chan *ScraperResponseMessage),
 	}
 
-	scraper.unsubscribe <- message
+	platform_action_monitor.scraper.unsubscribe <- message
 	response := <-message.response
 
 	return response.result, response.err

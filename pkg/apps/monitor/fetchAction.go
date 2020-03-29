@@ -1,4 +1,4 @@
-package main
+package monitor
 
 import (
 	"context"
@@ -49,7 +49,7 @@ func fetchActionData(db DatabaseConnect, offset uint64, filter *DatabaseFilters)
 	sql, args := s.get()
 	rows := new(ActionTraceRows)
 
-	err := db.QueryRow(context.Background(), sql, args...).Scan(&rows.actData, &rows.offset)
+	err := QueryRow(context.Background(), sql, args...).Scan(&rows.actData, &rows.offset)
 	return rows, err
 }
 
@@ -64,7 +64,7 @@ func fetchAllActionData(db DatabaseConnect, offset uint64, count uint, filter *D
 		sql += fmt.Sprintf(" LIMIT $%d", len(args))
 	}
 
-	rows, _ := db.Query(context.Background(), sql, args...)
+	rows, _ := Query(context.Background(), sql, args...)
 	defer rows.Close()
 
 	result := make([]*ActionTraceRows, 0)

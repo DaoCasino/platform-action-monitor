@@ -1,9 +1,10 @@
-package main
+package monitor
 
 import (
+	"testing"
+
 	"github.com/jackc/pgx/v4"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func TestFetchActionData(t *testing.T) {
