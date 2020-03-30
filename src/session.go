@@ -74,12 +74,14 @@ func (s *Session) setOffset(offset uint64) {
 func (s *Session) readPump(parentContext context.Context) {
 	readPumpContext, cancel := context.WithCancel(parentContext)
 	defer func() {
+		cancel()
 		sessionManager.unregister <- s
 		s.conn.Close()
 
-		cancel()
 		sessionLog.Debug("readPump close", zap.String("session.id", s.ID))
 	}()
+
+	sessionLog.Debug("readPump start", zap.String("session.id", s.ID))
 
 	s.conn.SetReadLimit(config.session.maxMessageSize)
 	s.conn.SetReadDeadline(time.Now().Add(config.session.pongWait))
@@ -107,27 +109,55 @@ func (s *Session) readPump(parentContext context.Context) {
 	}
 }
 
-func (s *Session) writePump(parentContext context.Context) {
-	ticker := time.NewTicker(config.session.pingPeriod)
-	writePumpContext, cancel := context.WithCancel(parentContext)
+func (s *Session) queuePump(parentContext context.Context) {
+	queuePumpContext, cancel := context.WithCancel(parentContext)
 	defer func() {
-		ticker.Stop()
-		s.conn.Close()
-
 		cancel()
-		sessionLog.Debug("writePump close", zap.String("session.id", s.ID))
+		s.queueMessages.clean()
+
+		sessionLog.Debug("queuePump close", zap.String("session.id", s.ID))
 	}()
+
+	sessionLog.Debug("queuePump start", zap.String("session.id", s.ID))
+
 	for {
 		select {
 		case <-parentContext.Done():
-			sessionLog.Debug("writePump parent context close, close connection")
-			close(s.send) // TODO: <- ?
-		case event := <-s.queue:
-			sessionLog.Debug("add event in queue", zap.String("session.id", s.ID), zap.Uint64("event.offset", event.Offset))
+			sessionLog.Debug("queuePump parent context close")
+			return
+		case event, ok := <-s.queue:
+			if !ok {
+				return
+			}
 			s.queueMessages.add(event)
 			if s.queueMessages.isOpen() {
-				s.sendQueueMessages(writePumpContext)
+				s.sendQueueMessages(queuePumpContext)
 			}
+		}
+	}
+}
+
+func (s *Session) writePump(parentContext context.Context) {
+	ticker := time.NewTicker(config.session.pingPeriod)
+	writePumpContext, cancel := context.WithCancel(parentContext)
+
+	go s.queuePump(writePumpContext)
+
+	defer func() {
+		cancel()
+		ticker.Stop()
+		s.conn.Close()
+
+		sessionLog.Debug("writePump close", zap.String("session.id", s.ID))
+	}()
+
+	sessionLog.Debug("writePump start", zap.String("session.id", s.ID))
+
+	for {
+		select {
+		case <-parentContext.Done():
+			sessionLog.Debug("writePump parent context close")
+			return
 
 		case message, ok := <-s.send:
 			s.conn.SetWriteDeadline(time.Now().Add(config.session.writeWait))
