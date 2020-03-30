@@ -141,8 +141,6 @@ func (s *Session) writePump(parentContext context.Context) {
 	ticker := time.NewTicker(config.session.pingPeriod)
 	writePumpContext, cancel := context.WithCancel(parentContext)
 
-	go s.queuePump(writePumpContext)
-
 	defer func() {
 		cancel()
 		ticker.Stop()
@@ -152,6 +150,7 @@ func (s *Session) writePump(parentContext context.Context) {
 	}()
 
 	sessionLog.Debug("writePump start", zap.String("session.id", s.ID))
+	go s.queuePump(writePumpContext)
 
 	for {
 		select {
