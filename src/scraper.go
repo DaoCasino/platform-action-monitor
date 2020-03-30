@@ -149,6 +149,9 @@ func (s *Scraper) handleNotify(ctx context.Context, conn *pgx.Conn, offset uint6
 
 	if event, err := fetchEvent(ctx, conn, offset); err == nil {
 		select {
+		case <-ctx.Done():
+			sessionLog.Debug("handleNotify parent context done")
+			return
 		case s.broadcast <- &ScraperBroadcastMessage{fmt.Sprintf("event_%d", event.EventType), event, nil}:
 		default:
 			return

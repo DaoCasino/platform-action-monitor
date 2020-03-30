@@ -255,7 +255,7 @@ func (s *Session) sendMessages(ctx context.Context, topic string, offset uint64)
 	}
 
 	var conn *pgxpool.Conn
-	conn, err = pool.Acquire(s.parentCtx)
+	conn, err = pool.Acquire(ctx)
 	if err != nil {
 		sessionLog.Error("pool acquire connection error", zap.Error(err))
 		return
@@ -268,7 +268,7 @@ func (s *Session) sendMessages(ctx context.Context, topic string, offset uint64)
 	}()
 
 	var events []*Event
-	events, err = fetchAllEvents(s.parentCtx, conn.Conn(), offset, 0)
+	events, err = fetchAllEvents(ctx, conn.Conn(), offset, 0)
 	if err != nil {
 		sessionLog.Error("fetch all events error", zap.Error(err))
 		return
