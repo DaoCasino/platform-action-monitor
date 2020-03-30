@@ -144,10 +144,10 @@ func (s *Scraper) run(ctx context.Context) {
 	}
 }
 
-func (s *Scraper) handleNotify(conn *pgx.Conn, offset uint64) {
+func (s *Scraper) handleNotify(ctx context.Context, conn *pgx.Conn, offset uint64) {
 	scraperLog.Debug("handleNotify", zap.Uint64("offset", offset))
 
-	if event, err := fetchEvent(conn, offset); err == nil {
+	if event, err := fetchEvent(ctx, conn, offset); err == nil {
 		select {
 		case s.broadcast <- &ScraperBroadcastMessage{fmt.Sprintf("event_%d", event.EventType), event, nil}:
 		default:
@@ -196,7 +196,7 @@ func (s *Scraper) listen(parentCtx context.Context) {
 					return
 				}
 
-				s.handleNotify(conn.Conn(), uint64(offset))
+				s.handleNotify(parentCtx, conn.Conn(), uint64(offset)) // TODO: check done?
 			}
 			cancel()
 		}

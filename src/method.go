@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"go.uber.org/zap"
 )
@@ -9,8 +10,8 @@ import (
 type methodResult interface{}
 type methodExecutor interface {
 	isValid() bool
-	execute(session *Session) (methodResult, error)
-	after(session *Session)
+	execute(ctx context.Context, session *Session) (methodResult, error)
+	after(ctx context.Context, session *Session)
 }
 
 const (
@@ -28,7 +29,7 @@ func (p *methodSubscribeParams) isValid() bool {
 	return p.Topic != ""
 }
 
-func (p *methodSubscribeParams) execute(session *Session) (methodResult, error) {
+func (p *methodSubscribeParams) execute(ctx context.Context, session *Session) (methodResult, error) {
 	methodLog.Debug("> subscribe",
 		zap.String("topic", p.Topic),
 		zap.Uint64("offset", p.Offset),
@@ -47,8 +48,8 @@ func (p *methodSubscribeParams) execute(session *Session) (methodResult, error) 
 	return response.result, response.err
 }
 
-func (p *methodSubscribeParams) after(session *Session) {
-	session.sendMessages(p.Topic, p.Offset)
+func (p *methodSubscribeParams) after(ctx context.Context, session *Session) {
+	session.sendMessages(ctx, p.Topic, p.Offset)
 }
 
 type methodUnsubscribeParams struct {
@@ -59,7 +60,7 @@ func (p *methodUnsubscribeParams) isValid() bool {
 	return p.Topic != ""
 }
 
-func (p *methodUnsubscribeParams) execute(session *Session) (methodResult, error) {
+func (p *methodUnsubscribeParams) execute(ctx context.Context, session *Session) (methodResult, error) {
 	methodLog.Debug("> unsubscribe", zap.String("topic", p.Topic), zap.String("session.id", session.ID))
 
 	message := &ScraperUnsubscribeMessage{
@@ -74,7 +75,7 @@ func (p *methodUnsubscribeParams) execute(session *Session) (methodResult, error
 	return response.result, response.err
 }
 
-func (p *methodUnsubscribeParams) after(session *Session) {
+func (p *methodUnsubscribeParams) after(ctx context.Context, session *Session) {
 	methodLog.Debug("after unsubscribe")
 }
 

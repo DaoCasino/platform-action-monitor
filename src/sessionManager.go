@@ -64,14 +64,14 @@ func (s *SessionManager) run(ctx context.Context) {
 	}
 }
 
-func serveWs(scraper *Scraper, w http.ResponseWriter, r *http.Request) {
+func serveWs(ctx context.Context, scraper *Scraper, w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		sessionLog.Error("upgrade", zap.Error(err))
 		return
 	}
 
-	session := newSession(scraper, conn)
+	session := newSession(ctx, scraper, conn)
 	sessionManager.register <- session
 
 	// Allow collection of memory referenced by the caller by doing all work in

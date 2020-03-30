@@ -63,7 +63,7 @@ func main() {
 
 	router := mux.NewRouter()
 	router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		serveWs(scraper, w, r)
+		serveWs(parentCtx, scraper, w, r)
 	})
 
 	metrics.Handle(router)

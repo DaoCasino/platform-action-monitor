@@ -1,13 +1,14 @@
 package main
 
 import (
+	"context"
 	"github.com/jackc/pgx/v4"
 	"go.uber.org/zap"
 )
 
-func fetchEvent(conn DatabaseConnect, offset uint64) (*Event, error) {
+func fetchEvent(ctx context.Context, conn DatabaseConnect, offset uint64) (*Event, error) {
 	filter := config.db.filter
-	rows, err := fetchActionData(conn, offset, &filter)
+	rows, err := fetchActionData(ctx, conn, offset, &filter)
 	switch err {
 	case nil:
 		// ok
@@ -27,10 +28,10 @@ func fetchEvent(conn DatabaseConnect, offset uint64) (*Event, error) {
 	return nil, err
 }
 
-func fetchAllEvents(conn DatabaseConnect, offset uint64, count uint) ([]*Event, error) {
+func fetchAllEvents(ctx context.Context, conn DatabaseConnect, offset uint64, count uint) ([]*Event, error) {
 	filter := config.db.filter
 	events := make([]*Event, 0)
-	dataset, err := fetchAllActionData(conn, offset, count, &filter)
+	dataset, err := fetchAllActionData(ctx, conn, offset, count, &filter)
 	if err != nil {
 		return nil, err
 	}
