@@ -50,11 +50,12 @@ func main() {
 		mainLog.Fatal("abi decoder error", zap.Error(err))
 	}
 
-	parentCtx, cancelFunc := context.WithCancel(context.Background())
+	parentContext := context.Background()
+	mainContext, mainCancel := context.WithCancel(parentContext)
 
-	pool, err = pgxpool.Connect(parentCtx, config.db.url)
+	pool, err = pgxpool.Connect(mainContext, config.db.url)
 	if err != nil {
-		cancelFunc()
+		mainCancel()
 		mainLog.Fatal("database connection", zap.Error(err))
 	}
 
@@ -63,7 +64,7 @@ func main() {
 
 	router := mux.NewRouter()
 	router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		serveWs(parentCtx, scraper, w, r)
+		serveWs(mainContext, scraper, w, r)
 	})
 
 	metrics.Handle(router)
@@ -76,8 +77,8 @@ func main() {
 	done := make(chan os.Signal, 1)
 	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
-	go sessionManager.run(parentCtx)
-	go scraper.run(parentCtx)
+	go sessionManager.run(mainContext)
+	go scraper.run(mainContext)
 
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -89,16 +90,18 @@ func main() {
 
 	<-done
 	mainLog.Debug("done signal")
-	cancelFunc()
+	mainCancel()
 
-	ctx, cancel := context.WithTimeout(context.Background(), withTimeout)
+	shutdownContextWithTimeout, cancelWaitShutdown := context.WithTimeout(parentContext, withTimeout)
 	defer func() {
+		// TODO: close all connections here
 		pool.Close()
-		cancel()
+
+		cancelWaitShutdown()
 		mainLog.Debug("connection closed")
 	}()
 
-	if err := srv.Shutdown(ctx); err != nil {
+	if err := srv.Shutdown(shutdownContextWithTimeout); err != nil {
 		mainLog.Fatal("server shutdown failed", zap.Error(err))
 	}
 }

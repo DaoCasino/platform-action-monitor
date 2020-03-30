@@ -50,19 +50,19 @@ func newScraper() *Scraper {
 	}
 }
 
-func (s *Scraper) run(ctx context.Context) {
+func (s *Scraper) run(parentContext context.Context) {
 	defer func() {
 		scraperLog.Info("scraper stopped")
 	}()
 	scraperLog.Info("scraper started")
 
 	if pool != nil {
-		go scraper.listen(ctx)
+		go scraper.listen(parentContext)
 	}
 
 	for {
 		select {
-		case <-ctx.Done():
+		case <-parentContext.Done():
 			scraperLog.Debug("listen parent context done")
 			return
 
@@ -144,12 +144,12 @@ func (s *Scraper) run(ctx context.Context) {
 	}
 }
 
-func (s *Scraper) handleNotify(ctx context.Context, conn *pgx.Conn, offset uint64) {
+func (s *Scraper) handleNotify(parentContext context.Context, conn *pgx.Conn, offset uint64) {
 	scraperLog.Debug("handleNotify", zap.Uint64("offset", offset))
 
-	if event, err := fetchEvent(ctx, conn, offset); err == nil {
+	if event, err := fetchEvent(parentContext, conn, offset); err == nil {
 		select {
-		case <-ctx.Done():
+		case <-parentContext.Done():
 			sessionLog.Debug("handleNotify parent context done")
 			return
 		case s.broadcast <- &ScraperBroadcastMessage{fmt.Sprintf("event_%d", event.EventType), event, nil}:
@@ -159,8 +159,8 @@ func (s *Scraper) handleNotify(ctx context.Context, conn *pgx.Conn, offset uint6
 	}
 }
 
-func (s *Scraper) listen(parentCtx context.Context) {
-	conn, err := pool.Acquire(parentCtx)
+func (s *Scraper) listen(parentContext context.Context) {
+	conn, err := pool.Acquire(parentContext)
 	if err != nil {
 		scraperLog.Error("pool acquire connection error", zap.Error(err))
 	}
@@ -172,7 +172,7 @@ func (s *Scraper) listen(parentCtx context.Context) {
 		scraperLog.Debug("listen notify stop")
 	}()
 
-	_, err = conn.Exec(parentCtx, "listen new_action_trace")
+	_, err = conn.Exec(parentContext, "listen new_action_trace")
 	if err != nil {
 		scraperLog.Error("error listening new_action_trace", zap.Error(err))
 		return
@@ -180,12 +180,12 @@ func (s *Scraper) listen(parentCtx context.Context) {
 
 	for {
 		select {
-		case <-parentCtx.Done():
+		case <-parentContext.Done():
 			scraperLog.Debug("listen parent context done")
 			return
 		default:
-			ctx, cancel := context.WithTimeout(parentCtx, time.Second)
-			notification, err := conn.Conn().WaitForNotification(ctx)
+			contextWithTimeout, cancelWaitForNotification := context.WithTimeout(parentContext, time.Second)
+			notification, err := conn.Conn().WaitForNotification(contextWithTimeout)
 			if err == nil {
 				scraperLog.Debug("notify",
 					zap.Uint32("PID", notification.PID),
@@ -199,9 +199,9 @@ func (s *Scraper) listen(parentCtx context.Context) {
 					return
 				}
 
-				s.handleNotify(parentCtx, conn.Conn(), uint64(offset)) // TODO: check done?
+				s.handleNotify(parentContext, conn.Conn(), uint64(offset)) // TODO: check done?
 			}
-			cancel()
+			cancelWaitForNotification()
 		}
 	}
 }

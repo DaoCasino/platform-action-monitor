@@ -30,7 +30,7 @@ func newSessionManager() *SessionManager {
 	}
 }
 
-func (s *SessionManager) run(ctx context.Context) {
+func (s *SessionManager) run(parentContext context.Context) {
 	defer func() {
 		for session := range s.sessions {
 			scraper.unsubscribeSession <- session
@@ -46,7 +46,7 @@ func (s *SessionManager) run(ctx context.Context) {
 
 	for {
 		select {
-		case <-ctx.Done():
+		case <-parentContext.Done():
 			sessionLog.Debug("session manager parent context done")
 			return
 		case session := <-s.register:
@@ -64,18 +64,18 @@ func (s *SessionManager) run(ctx context.Context) {
 	}
 }
 
-func serveWs(ctx context.Context, scraper *Scraper, w http.ResponseWriter, r *http.Request) {
+func serveWs(parentContext context.Context, scraper *Scraper, w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		sessionLog.Error("upgrade", zap.Error(err))
 		return
 	}
 
-	session := newSession(ctx, scraper, conn)
+	session := newSession(scraper, conn)
 	sessionManager.register <- session
 
 	// Allow collection of memory referenced by the caller by doing all work in
 	// new goroutines.
-	go session.writePump()
-	go session.readPump()
+	go session.writePump(parentContext)
+	go session.readPump(parentContext)
 }
