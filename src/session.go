@@ -53,8 +53,6 @@ type Session struct {
 	queueMessages *Queue
 }
 
-//func newSession(config *SessionConfig, scraper *Scraper, manager *SessionManager, conn *websocket.Conn) *Session {
-
 func newSession(scraper *Scraper, conn *websocket.Conn) *Session {
 	ID := cuid.New()
 	sessionLog.Debug("new session", zap.String("ID", ID))
@@ -73,54 +71,66 @@ func (s *Session) setOffset(offset uint64) {
 	s.offset = offset
 }
 
-func (s *Session) readPump() {
-
+func (s *Session) readPump(parentContext context.Context) {
+	readPumpContext, cancel := context.WithCancel(parentContext)
 	defer func() {
 		sessionManager.unregister <- s
-		if err := s.conn.Close(); err != nil {
-			// sessionLog.Error("connection close error", zap.String("session.id", s.ID), zap.Error(err))
-		}
+		s.conn.Close()
 
+		cancel()
 		sessionLog.Debug("readPump close", zap.String("session.id", s.ID))
 	}()
 
 	s.conn.SetReadLimit(config.session.maxMessageSize)
 	s.conn.SetReadDeadline(time.Now().Add(config.session.pongWait))
 	s.conn.SetPongHandler(func(string) error { s.conn.SetReadDeadline(time.Now().Add(config.session.pongWait)); return nil })
-	for {
-		_, message, err := s.conn.ReadMessage()
-		if err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				sessionLog.Error("readPump", zap.String("session.id", s.ID), zap.Error(err))
-			}
-			break
-		}
 
-		if err := s.process(message); err != nil {
-			sessionLog.Error("process error", zap.String("session.id", s.ID), zap.Error(err))
-			break
+	for {
+		select {
+		case <-parentContext.Done():
+			sessionLog.Debug("readPump parent context close, close connection")
+			return
+		default:
+			_, message, err := s.conn.ReadMessage()
+			if err != nil {
+				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+					sessionLog.Error("readPump", zap.String("session.id", s.ID), zap.Error(err))
+				}
+				return
+			}
+
+			if err := s.process(readPumpContext, message); err != nil {
+				sessionLog.Error("process error", zap.String("session.id", s.ID), zap.Error(err))
+				return
+			}
 		}
 	}
 }
 
-func (s *Session) writePump() {
+func (s *Session) writePump(parentContext context.Context) {
 	ticker := time.NewTicker(config.session.pingPeriod)
+	writePumpContext, cancel := context.WithCancel(parentContext)
 	defer func() {
 		ticker.Stop()
-		_ = s.conn.Close()
+		s.conn.Close()
+
+		cancel()
 		sessionLog.Debug("writePump close", zap.String("session.id", s.ID))
 	}()
 	for {
 		select {
+		case <-parentContext.Done():
+			sessionLog.Debug("writePump parent context close, close connection")
+			close(s.send) // TODO: <- ?
 		case event := <-s.queue:
 			sessionLog.Debug("add event in queue", zap.String("session.id", s.ID), zap.Uint64("event.offset", event.Offset))
 			s.queueMessages.add(event)
 			if s.queueMessages.isOpen() {
-				s.sendQueueMessages()
+				s.sendQueueMessages(writePumpContext)
 			}
 
 		case message, ok := <-s.send:
-			_ = s.conn.SetWriteDeadline(time.Now().Add(config.session.writeWait))
+			s.conn.SetWriteDeadline(time.Now().Add(config.session.writeWait))
 			if !ok {
 				// The session closed the channel.
 				if err := s.conn.WriteMessage(websocket.CloseMessage, []byte{}); err != nil {
@@ -146,7 +156,7 @@ func (s *Session) writePump() {
 			}
 
 		case <-ticker.C:
-			_ = s.conn.SetWriteDeadline(time.Now().Add(config.session.writeWait))
+			s.conn.SetWriteDeadline(time.Now().Add(config.session.writeWait))
 			if err := s.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				sessionLog.Error("ping message error", zap.String("session.id", s.ID), zap.Error(err))
 				return
@@ -188,7 +198,7 @@ func parseRequest(message []byte, response *ResponseMessage) (methodExecutor, er
 	return method, nil
 }
 
-func (s *Session) process(message []byte) error {
+func (s *Session) process(parentContext context.Context, message []byte) error {
 	response := newResponseMessage()
 	method, err := parseRequest(message, response)
 
@@ -201,7 +211,7 @@ func (s *Session) process(message []byte) error {
 		s.send <- raw
 
 		if method != nil {
-			method.after(s)
+			method.after(parentContext, s)
 		}
 	}()
 
@@ -209,7 +219,7 @@ func (s *Session) process(message []byte) error {
 		return err
 	}
 
-	result, err := method.execute(s)
+	result, err := method.execute(parentContext, s)
 	if err != nil {
 		response.setError(err)
 
@@ -235,7 +245,7 @@ func (s *Session) process(message []byte) error {
 	return nil
 }
 
-func (s *Session) sendMessages(topic string, offset uint64) {
+func (s *Session) sendMessages(parentContext context.Context, topic string, offset uint64) {
 	sessionLog.Debug("after subscribe send events", zap.String("session.id", s.ID), zap.Uint64("offset", offset))
 
 	eventType, err := getEventTypeFromTopic(topic)
@@ -245,7 +255,7 @@ func (s *Session) sendMessages(topic string, offset uint64) {
 	}
 
 	var conn *pgxpool.Conn
-	conn, err = pool.Acquire(context.Background())
+	conn, err = pool.Acquire(parentContext)
 	if err != nil {
 		sessionLog.Error("pool acquire connection error", zap.Error(err))
 		return
@@ -253,13 +263,12 @@ func (s *Session) sendMessages(topic string, offset uint64) {
 
 	defer func() {
 		conn.Release()
-
-		s.sendQueueMessages()
-		s.queueMessages.open() // TODO: <-
+		s.sendQueueMessages(parentContext)
+		s.queueMessages.open() // TODO: <- check done?
 	}()
 
 	var events []*Event
-	events, err = fetchAllEvents(conn.Conn(), offset, 0)
+	events, err = fetchAllEvents(parentContext, conn.Conn(), offset, 0)
 	if err != nil {
 		sessionLog.Error("fetch all events error", zap.Error(err))
 		return
@@ -276,6 +285,9 @@ func (s *Session) sendMessages(topic string, offset uint64) {
 			}
 
 			select {
+			case <-parentContext.Done():
+				sessionLog.Debug("sendMessages parent context done")
+				return
 			case s.send <- eventMessage:
 				metrics.EventsTotal.Add(float64(len(filteredEvents)))
 			default:
@@ -288,7 +300,7 @@ func (s *Session) sendMessages(topic string, offset uint64) {
 	}
 }
 
-func (s *Session) sendQueueMessages() {
+func (s *Session) sendQueueMessages(parentContext context.Context) {
 	sessionLog.Debug("sendQueueMessages")
 
 	events, err := filterEventsFromOffset(s.queueMessages.events, s.offset)
@@ -309,10 +321,11 @@ func (s *Session) sendQueueMessages() {
 	s.queueMessages.clean()
 
 	select {
+	case <-parentContext.Done():
+		sessionLog.Debug("sendQueueMessages parent context done")
 	case s.send <- eventMessage:
 		metrics.EventsTotal.Add(float64(len(events)))
 	default:
 		sessionLog.Error("error send eventMessage")
-		return
 	}
 }

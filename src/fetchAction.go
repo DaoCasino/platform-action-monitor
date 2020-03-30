@@ -42,18 +42,18 @@ func (s *SqlQuery) get() (string, []interface{}) {
 	return sql, s.value
 }
 
-func fetchActionData(db DatabaseConnect, offset uint64, filter *DatabaseFilters) (*ActionTraceRows, error) {
+func fetchActionData(ctx context.Context, db DatabaseConnect, offset uint64, filter *DatabaseFilters) (*ActionTraceRows, error) {
 	s := newSqlQuery(filter)
 	s.append("receipt_global_sequence=", offset)
 
 	sql, args := s.get()
 	rows := new(ActionTraceRows)
 
-	err := db.QueryRow(context.Background(), sql, args...).Scan(&rows.actData, &rows.offset)
+	err := db.QueryRow(ctx, sql, args...).Scan(&rows.actData, &rows.offset)
 	return rows, err
 }
 
-func fetchAllActionData(db DatabaseConnect, offset uint64, count uint, filter *DatabaseFilters) ([]*ActionTraceRows, error) {
+func fetchAllActionData(ctx context.Context, db DatabaseConnect, offset uint64, count uint, filter *DatabaseFilters) ([]*ActionTraceRows, error) {
 	s := newSqlQuery(filter)
 	s.append("receipt_global_sequence >=", offset)
 
@@ -64,7 +64,7 @@ func fetchAllActionData(db DatabaseConnect, offset uint64, count uint, filter *D
 		sql += fmt.Sprintf(" LIMIT $%d", len(args))
 	}
 
-	rows, _ := db.Query(context.Background(), sql, args...)
+	rows, _ := db.Query(ctx, sql, args...)
 	defer rows.Close()
 
 	result := make([]*ActionTraceRows, 0)

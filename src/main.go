@@ -14,7 +14,6 @@ import (
 	"time"
 )
 
-// context DeadLine timeout
 const withTimeout = 5 * time.Second
 
 // Globals
@@ -51,8 +50,12 @@ func main() {
 		mainLog.Fatal("abi decoder error", zap.Error(err))
 	}
 
-	pool, err = pgxpool.Connect(context.Background(), config.db.url)
+	parentContext := context.Background()
+	mainContext, mainCancel := context.WithCancel(parentContext)
+
+	pool, err = pgxpool.Connect(mainContext, config.db.url)
 	if err != nil {
+		mainCancel()
 		mainLog.Fatal("database connection", zap.Error(err))
 	}
 
@@ -61,7 +64,7 @@ func main() {
 
 	router := mux.NewRouter()
 	router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		serveWs(scraper, w, r)
+		serveWs(mainContext, scraper, w, r)
 	})
 
 	metrics.Handle(router)
@@ -74,9 +77,8 @@ func main() {
 	done := make(chan os.Signal, 1)
 	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
-	idleConnectionClosed := make(chan struct{})
-	go sessionManager.run(idleConnectionClosed)
-	go scraper.run(idleConnectionClosed)
+	go sessionManager.run(mainContext)
+	go scraper.run(mainContext)
 
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -87,17 +89,19 @@ func main() {
 	mainLog.Info("server is listening", zap.String("addr", config.serverAddress))
 
 	<-done
-	close(idleConnectionClosed)
+	mainLog.Debug("done signal")
+	mainCancel()
 
-	mainLog.Info("server stopped")
-
-	ctx, cancel := context.WithTimeout(context.Background(), withTimeout)
+	shutdownContextWithTimeout, cancelWaitShutdown := context.WithTimeout(parentContext, withTimeout)
 	defer func() {
+		// TODO: close all connections here
 		pool.Close()
-		cancel()
+
+		cancelWaitShutdown()
+		mainLog.Debug("connection closed")
 	}()
 
-	if err := srv.Shutdown(ctx); err != nil {
+	if err := srv.Shutdown(shutdownContextWithTimeout); err != nil {
 		mainLog.Fatal("server shutdown failed", zap.Error(err))
 	}
 }

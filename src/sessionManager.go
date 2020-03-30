@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"github.com/DaoCasino/platform-action-monitor/src/metrics"
 	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
@@ -29,7 +30,7 @@ func newSessionManager() *SessionManager {
 	}
 }
 
-func (s *SessionManager) run(done <-chan struct{}) {
+func (s *SessionManager) run(parentContext context.Context) {
 	defer func() {
 		for session := range s.sessions {
 			scraper.unsubscribeSession <- session
@@ -45,7 +46,8 @@ func (s *SessionManager) run(done <-chan struct{}) {
 
 	for {
 		select {
-		case <-done:
+		case <-parentContext.Done():
+			sessionLog.Debug("session manager parent context done")
 			return
 		case session := <-s.register:
 			s.sessions[session] = true
@@ -62,7 +64,7 @@ func (s *SessionManager) run(done <-chan struct{}) {
 	}
 }
 
-func serveWs(scraper *Scraper, w http.ResponseWriter, r *http.Request) {
+func serveWs(parentContext context.Context, scraper *Scraper, w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		sessionLog.Error("upgrade", zap.Error(err))
@@ -74,6 +76,6 @@ func serveWs(scraper *Scraper, w http.ResponseWriter, r *http.Request) {
 
 	// Allow collection of memory referenced by the caller by doing all work in
 	// new goroutines.
-	go session.writePump()
-	go session.readPump()
+	go session.writePump(parentContext)
+	go session.readPump(parentContext)
 }
