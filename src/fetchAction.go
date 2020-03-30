@@ -67,7 +67,7 @@ func fetchAllActionData(ctx context.Context, db DatabaseConnect, offset uint64, 
 	rows, _ := db.Query(ctx, sql, args...)
 	defer rows.Close()
 
-	result := make([]*ActionTraceRows, 0)
+	result := make([]*ActionTraceRows, 0, count)
 
 	for rows.Next() {
 		data := new(ActionTraceRows)

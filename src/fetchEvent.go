@@ -30,12 +30,13 @@ func fetchEvent(ctx context.Context, conn DatabaseConnect, offset uint64) (*Even
 
 func fetchAllEvents(ctx context.Context, conn DatabaseConnect, offset uint64, count uint) ([]*Event, error) {
 	filter := config.db.filter
-	events := make([]*Event, 0)
+
 	dataset, err := fetchAllActionData(ctx, conn, offset, count, &filter)
 	if err != nil {
 		return nil, err
 	}
 
+	events := make([]*Event, 0, len(dataset))
 	for _, data := range dataset {
 		if event, err := abiDecoder.Decode(data.actData); err == nil {
 			event.Offset = data.offset
