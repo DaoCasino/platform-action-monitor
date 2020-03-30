@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/DaoCasino/platform-action-monitor/src/metrics"
 	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
 	"net/http"
@@ -35,6 +36,7 @@ func (s *SessionManager) run(done <-chan struct{}) {
 
 			delete(s.sessions, session)
 			close(session.send)
+			metrics.UsersOnline.Dec()
 		}
 		sessionLog.Info("session manager stopped")
 	}()
@@ -47,12 +49,14 @@ func (s *SessionManager) run(done <-chan struct{}) {
 			return
 		case session := <-s.register:
 			s.sessions[session] = true
+			metrics.UsersOnline.Inc()
 		case session := <-s.unregister:
 			if _, ok := s.sessions[session]; ok {
 				scraper.unsubscribeSession <- session
 
 				delete(s.sessions, session)
 				close(session.send)
+				metrics.UsersOnline.Dec()
 			}
 		}
 	}

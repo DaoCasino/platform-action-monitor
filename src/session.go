@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/DaoCasino/platform-action-monitor/src/metrics"
 	"github.com/gorilla/websocket"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/lucsky/cuid"
@@ -276,6 +277,7 @@ func (s *Session) sendMessages(topic string, offset uint64) {
 
 			select {
 			case s.send <- eventMessage:
+				metrics.EventsTotal.Add(float64(len(filteredEvents)))
 			default:
 				sessionLog.Error("error send eventMessage")
 				return
@@ -308,6 +310,7 @@ func (s *Session) sendQueueMessages() {
 
 	select {
 	case s.send <- eventMessage:
+		metrics.EventsTotal.Add(float64(len(events)))
 	default:
 		sessionLog.Error("error send eventMessage")
 		return

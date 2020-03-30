@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"flag"
+	"github.com/DaoCasino/platform-action-monitor/src/metrics"
+	"github.com/gorilla/mux"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"go.uber.org/zap"
 	"net/http"
@@ -10,20 +12,19 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
-
-	"github.com/gorilla/mux"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 // context DeadLine timeout
 const withTimeout = 5 * time.Second
 
 // Globals
-var config *Config
-var abiDecoder *AbiDecoder
-var pool *pgxpool.Pool
-var scraper *Scraper
-var sessionManager *SessionManager
+var (
+	config         *Config
+	abiDecoder     *AbiDecoder
+	pool           *pgxpool.Pool
+	scraper        *Scraper
+	sessionManager *SessionManager
+)
 
 func main() {
 	configFile := flag.String("config", "", "config file")
@@ -63,7 +64,7 @@ func main() {
 		serveWs(scraper, w, r)
 	})
 
-	router.Handle("/metrics", promhttp.Handler())
+	metrics.Handle(router)
 
 	srv := &http.Server{
 		Addr:    config.serverAddress,
