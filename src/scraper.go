@@ -50,19 +50,20 @@ func newScraper() *Scraper {
 	}
 }
 
-func (s *Scraper) run(done <-chan struct{}) {
+func (s *Scraper) run(ctx context.Context) {
 	defer func() {
 		scraperLog.Info("scraper stopped")
 	}()
 	scraperLog.Info("scraper started")
 
 	if pool != nil {
-		go scraper.listen(done)
+		go scraper.listen(ctx)
 	}
 
 	for {
 		select {
-		case <-done:
+		case <-ctx.Done():
+			scraperLog.Debug("listen parent context done")
 			return
 
 		case session := <-s.unsubscribeSession:
@@ -155,8 +156,8 @@ func (s *Scraper) handleNotify(conn *pgx.Conn, offset uint64) {
 	}
 }
 
-func (s *Scraper) listen(done <-chan struct{}) {
-	conn, err := pool.Acquire(context.Background())
+func (s *Scraper) listen(parentCtx context.Context) {
+	conn, err := pool.Acquire(parentCtx)
 	if err != nil {
 		scraperLog.Error("pool acquire connection error", zap.Error(err))
 	}
@@ -168,7 +169,7 @@ func (s *Scraper) listen(done <-chan struct{}) {
 		scraperLog.Debug("listen notify stop")
 	}()
 
-	_, err = conn.Exec(context.Background(), "listen new_action_trace")
+	_, err = conn.Exec(parentCtx, "listen new_action_trace")
 	if err != nil {
 		scraperLog.Error("error listening new_action_trace", zap.Error(err))
 		return
@@ -176,10 +177,11 @@ func (s *Scraper) listen(done <-chan struct{}) {
 
 	for {
 		select {
-		case <-done:
+		case <-parentCtx.Done():
+			scraperLog.Debug("listen parent context done")
 			return
 		default:
-			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			ctx, cancel := context.WithTimeout(parentCtx, time.Second)
 			notification, err := conn.Conn().WaitForNotification(ctx)
 			if err == nil {
 				scraperLog.Debug("notify",

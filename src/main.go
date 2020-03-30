@@ -14,7 +14,6 @@ import (
 	"time"
 )
 
-// context DeadLine timeout
 const withTimeout = 5 * time.Second
 
 // Globals
@@ -51,8 +50,11 @@ func main() {
 		mainLog.Fatal("abi decoder error", zap.Error(err))
 	}
 
-	pool, err = pgxpool.Connect(context.Background(), config.db.url)
+	parentCtx, cancelFunc := context.WithCancel(context.Background())
+
+	pool, err = pgxpool.Connect(parentCtx, config.db.url)
 	if err != nil {
+		cancelFunc()
 		mainLog.Fatal("database connection", zap.Error(err))
 	}
 
@@ -74,9 +76,8 @@ func main() {
 	done := make(chan os.Signal, 1)
 	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
-	idleConnectionClosed := make(chan struct{})
-	go sessionManager.run(idleConnectionClosed)
-	go scraper.run(idleConnectionClosed)
+	go sessionManager.run(parentCtx)
+	go scraper.run(parentCtx)
 
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -87,14 +88,14 @@ func main() {
 	mainLog.Info("server is listening", zap.String("addr", config.serverAddress))
 
 	<-done
-	close(idleConnectionClosed)
-
-	mainLog.Info("server stopped")
+	mainLog.Debug("done signal")
+	cancelFunc()
 
 	ctx, cancel := context.WithTimeout(context.Background(), withTimeout)
 	defer func() {
 		pool.Close()
 		cancel()
+		mainLog.Debug("connection closed")
 	}()
 
 	if err := srv.Shutdown(ctx); err != nil {

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"github.com/DaoCasino/platform-action-monitor/src/metrics"
 	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
@@ -29,7 +30,7 @@ func newSessionManager() *SessionManager {
 	}
 }
 
-func (s *SessionManager) run(done <-chan struct{}) {
+func (s *SessionManager) run(ctx context.Context) {
 	defer func() {
 		for session := range s.sessions {
 			scraper.unsubscribeSession <- session
@@ -45,7 +46,8 @@ func (s *SessionManager) run(done <-chan struct{}) {
 
 	for {
 		select {
-		case <-done:
+		case <-ctx.Done():
+			sessionLog.Debug("session manager parent context done")
 			return
 		case session := <-s.register:
 			s.sessions[session] = true
