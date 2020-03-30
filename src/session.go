@@ -86,18 +86,24 @@ func (s *Session) readPump(parentContext context.Context) {
 	s.conn.SetReadLimit(config.session.maxMessageSize)
 	s.conn.SetReadDeadline(time.Now().Add(config.session.pongWait))
 	s.conn.SetPongHandler(func(string) error { s.conn.SetReadDeadline(time.Now().Add(config.session.pongWait)); return nil })
-	for {
-		_, message, err := s.conn.ReadMessage()
-		if err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				sessionLog.Error("readPump", zap.String("session.id", s.ID), zap.Error(err))
-			}
-			break
-		}
 
-		if err := s.process(readPumpContext, message); err != nil {
-			sessionLog.Error("process error", zap.String("session.id", s.ID), zap.Error(err))
-			break
+	for {
+		select {
+		case <-parentContext.Done():
+			return
+		default:
+			_, message, err := s.conn.ReadMessage()
+			if err != nil {
+				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+					sessionLog.Error("readPump", zap.String("session.id", s.ID), zap.Error(err))
+				}
+				return
+			}
+
+			if err := s.process(readPumpContext, message); err != nil {
+				sessionLog.Error("process error", zap.String("session.id", s.ID), zap.Error(err))
+				return
+			}
 		}
 	}
 }
