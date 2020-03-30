@@ -35,6 +35,7 @@ func (s *SessionManager) run(done <-chan struct{}) {
 
 			delete(s.sessions, session)
 			close(session.send)
+			usersOnline.Dec()
 		}
 		sessionLog.Info("session manager stopped")
 	}()
@@ -47,12 +48,14 @@ func (s *SessionManager) run(done <-chan struct{}) {
 			return
 		case session := <-s.register:
 			s.sessions[session] = true
+			usersOnline.Inc()
 		case session := <-s.unregister:
 			if _, ok := s.sessions[session]; ok {
 				scraper.unsubscribeSession <- session
 
 				delete(s.sessions, session)
 				close(session.send)
+				usersOnline.Dec()
 			}
 		}
 	}

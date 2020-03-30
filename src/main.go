@@ -3,17 +3,16 @@ package main
 import (
 	"context"
 	"flag"
+	"github.com/gorilla/mux"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
-
-	"github.com/gorilla/mux"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 // context DeadLine timeout
@@ -31,10 +30,16 @@ var (
 		prometheus.CounterOpts{
 			Name: "events_total",
 		})
+
+	usersOnline = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "users_online",
+		})
 )
 
 func init() {
 	prometheus.MustRegister(eventsTotal)
+	prometheus.MustRegister(usersOnline)
 }
 
 func main() {
