@@ -75,9 +75,7 @@ func (s *Session) readPump(parentContext context.Context) {
 	readPumpContext, cancel := context.WithCancel(parentContext)
 	defer func() {
 		sessionManager.unregister <- s
-		if err := s.conn.Close(); err != nil {
-			// sessionLog.Error("connection close error", zap.String("session.id", s.ID), zap.Error(err))
-		}
+		s.conn.Close()
 
 		cancel()
 		sessionLog.Debug("readPump close", zap.String("session.id", s.ID))
@@ -113,7 +111,7 @@ func (s *Session) writePump(parentContext context.Context) {
 	writePumpContext, cancel := context.WithCancel(parentContext)
 	defer func() {
 		ticker.Stop()
-		_ = s.conn.Close()
+		s.conn.Close()
 
 		cancel()
 		sessionLog.Debug("writePump close", zap.String("session.id", s.ID))
@@ -131,7 +129,7 @@ func (s *Session) writePump(parentContext context.Context) {
 			}
 
 		case message, ok := <-s.send:
-			_ = s.conn.SetWriteDeadline(time.Now().Add(config.session.writeWait))
+			s.conn.SetWriteDeadline(time.Now().Add(config.session.writeWait))
 			if !ok {
 				// The session closed the channel.
 				if err := s.conn.WriteMessage(websocket.CloseMessage, []byte{}); err != nil {
@@ -157,7 +155,7 @@ func (s *Session) writePump(parentContext context.Context) {
 			}
 
 		case <-ticker.C:
-			_ = s.conn.SetWriteDeadline(time.Now().Add(config.session.writeWait))
+			s.conn.SetWriteDeadline(time.Now().Add(config.session.writeWait))
 			if err := s.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				sessionLog.Error("ping message error", zap.String("session.id", s.ID), zap.Error(err))
 				return
