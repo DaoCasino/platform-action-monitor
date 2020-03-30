@@ -3,10 +3,9 @@ package main
 import (
 	"context"
 	"flag"
+	"github.com/DaoCasino/platform-action-monitor/src/metrics"
 	"github.com/gorilla/mux"
 	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 	"net/http"
 	"os"
@@ -25,22 +24,7 @@ var (
 	pool           *pgxpool.Pool
 	scraper        *Scraper
 	sessionManager *SessionManager
-
-	eventsTotal = prometheus.NewCounter(
-		prometheus.CounterOpts{
-			Name: "events_total",
-		})
-
-	usersOnline = prometheus.NewGauge(
-		prometheus.GaugeOpts{
-			Name: "users_online",
-		})
 )
-
-func init() {
-	prometheus.MustRegister(eventsTotal)
-	prometheus.MustRegister(usersOnline)
-}
 
 func main() {
 	configFile := flag.String("config", "", "config file")
@@ -80,7 +64,7 @@ func main() {
 		serveWs(scraper, w, r)
 	})
 
-	router.Handle("/metrics", promhttp.Handler())
+	metrics.Handle(router)
 
 	srv := &http.Server{
 		Addr:    config.serverAddress,
