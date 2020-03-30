@@ -88,6 +88,7 @@ func (s *Session) readPump(parentContext context.Context) {
 	for {
 		select {
 		case <-parentContext.Done():
+			sessionLog.Debug("readPump parent context close, close connection")
 			return
 		default:
 			_, message, err := s.conn.ReadMessage()
@@ -119,7 +120,7 @@ func (s *Session) writePump(parentContext context.Context) {
 	for {
 		select {
 		case <-parentContext.Done():
-			sessionLog.Debug("wtitePump parent context close, close connection")
+			sessionLog.Debug("writePump parent context close, close connection")
 			close(s.send) // TODO: <- ?
 		case event := <-s.queue:
 			sessionLog.Debug("add event in queue", zap.String("session.id", s.ID), zap.Uint64("event.offset", event.Offset))
@@ -285,7 +286,7 @@ func (s *Session) sendMessages(parentContext context.Context, topic string, offs
 
 			select {
 			case <-parentContext.Done():
-				sessionLog.Debug("sendMessages context done")
+				sessionLog.Debug("sendMessages parent context done")
 				return
 			case s.send <- eventMessage:
 				metrics.EventsTotal.Add(float64(len(filteredEvents)))
@@ -321,7 +322,7 @@ func (s *Session) sendQueueMessages(parentContext context.Context) {
 
 	select {
 	case <-parentContext.Done():
-		sessionLog.Debug("sendQueueMessages context done")
+		sessionLog.Debug("sendQueueMessages parent context done")
 	case s.send <- eventMessage:
 		metrics.EventsTotal.Add(float64(len(events)))
 	default:

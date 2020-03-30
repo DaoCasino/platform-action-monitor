@@ -63,7 +63,7 @@ func (s *Scraper) run(parentContext context.Context) {
 	for {
 		select {
 		case <-parentContext.Done():
-			scraperLog.Debug("listen parent context done")
+			scraperLog.Debug("scraper parent context done")
 			return
 
 		case session := <-s.unsubscribeSession:
