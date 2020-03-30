@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -21,10 +22,10 @@ func setupSessionTestCase(t *testing.T) (*Session, func(t *testing.T)) {
 	abiDecoder, err = newAbiDecoder(&config.abi)
 	require.NoError(t, err)
 
-	done := make(chan struct{})
-	go sessionManager.run(done)
+	contextSessionTestCase, cancel := context.WithCancel(context.Background())
+	go sessionManager.run(contextSessionTestCase)
 	t.Log("session manager running")
-	go scraper.run(done)
+	go scraper.run(contextSessionTestCase)
 	t.Log("scraper running")
 
 	session := newSession(scraper, nil)
@@ -35,7 +36,7 @@ func setupSessionTestCase(t *testing.T) (*Session, func(t *testing.T)) {
 	return session, func(t *testing.T) {
 		sessionManager.unregister <- session
 		t.Log("session unregister")
-		close(done)
+		cancel()
 		t.Log("scraper stopped")
 		t.Log("session manager stopped")
 	}
@@ -92,9 +93,11 @@ func TestSessionProcess(t *testing.T) {
 	session, teardownTestCase := setupSessionTestCase(t)
 	defer teardownTestCase(t)
 
+	ctx := context.Background()
+
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			_ = session.process([]byte(tc.request))
+			_ = session.process(ctx, []byte(tc.request))
 
 			// <-session.send
 
@@ -181,7 +184,7 @@ func TestSessionSendQueueMessages(t *testing.T) {
 		}
 	}()
 
-	session.sendQueueMessages()
+	session.sendQueueMessages(context.Background())
 	wg.Wait()
 	assert.Equal(t, 0, len(session.queueMessages.events))
 }

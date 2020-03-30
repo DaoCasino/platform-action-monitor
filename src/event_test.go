@@ -37,7 +37,7 @@ func TestGetEventTypeFromTopic(t *testing.T) {
 }
 
 func TestFilterEventsByEventType(t *testing.T) {
-	events := []*Event{{EventType: 0}, {EventType: 1}, {EventType: 0}}
+	events := []*Event{{EventType: 0}, {EventType: 1}, {EventType: 0}, {EventType: 3}}
 	result := filterEventsByEventType(events, 0)
 	assert.Equal(t, 2, len(result))
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"github.com/jackc/pgx/v4"
 	"github.com/stretchr/testify/assert"
 	"testing"
@@ -14,7 +15,7 @@ func TestFetchActionData(t *testing.T) {
 	config.db.filter.actName = &testFilter
 	config.db.filter.actAccount = &testFilter
 
-	_, err := fetchActionData(mock, 0, &config.db.filter)
+	_, err := fetchActionData(context.Background(), mock, 0, &config.db.filter)
 	switch err {
 	case pgx.ErrNoRows:
 	default:
@@ -32,7 +33,7 @@ func TestFetchAllActionData(t *testing.T) {
 	config.db.filter.actName = &testFilter
 	config.db.filter.actAccount = &testFilter
 
-	result, _ = fetchAllActionData(mock, 0, 1, &config.db.filter)
+	result, _ = fetchAllActionData(context.Background(), mock, 0, 1, &config.db.filter)
 	// require.NoError(t, err)
 	assert.Equal(t, len(result), 0)
 }

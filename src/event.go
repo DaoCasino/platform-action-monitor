@@ -35,7 +35,7 @@ func getEventTypeFromTopic(topic string) (int, error) {
 }
 
 func filterEventsByEventType(events []*Event, eventType int) []*Event {
-	result := make([]*Event, 0)
+	result := events[:0]
 	for _, event := range events {
 		if event.EventType == eventType {
 			result = append(result, event)
