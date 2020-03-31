@@ -36,7 +36,7 @@ func (s *SessionManager) run(parentContext context.Context) {
 			scraper.unsubscribeSession <- session
 
 			delete(s.sessions, session)
-			close(session.send)
+			close(session.queue)
 			metrics.UsersOnline.Dec()
 		}
 		sessionLog.Info("session manager stopped")
@@ -57,7 +57,7 @@ func (s *SessionManager) run(parentContext context.Context) {
 				scraper.unsubscribeSession <- session
 
 				delete(s.sessions, session)
-				close(session.send)
+				close(session.queue)
 				metrics.UsersOnline.Dec()
 			}
 		}

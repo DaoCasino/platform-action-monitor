@@ -115,6 +115,8 @@ func (s *Session) queuePump(parentContext context.Context) {
 		cancel()
 		s.queueMessages.clean()
 
+		close(s.send)
+
 		sessionLog.Debug("queuePump close", zap.String("session.id", s.ID))
 	}()
 
@@ -163,24 +165,24 @@ func (s *Session) writePump(parentContext context.Context) {
 			if !ok {
 				// The session closed the channel.
 				if err := s.conn.WriteMessage(websocket.CloseMessage, []byte{}); err != nil {
-					// sessionLog.Error("writeCloseMessage error", zap.String("session.id", s.ID), zap.Error(err))
+					sessionLog.Error("writeCloseMessage error", zap.String("session.id", s.ID), zap.Error(err))
 				}
 				return
 			}
 
 			w, err := s.conn.NextWriter(websocket.TextMessage)
 			if err != nil {
-				// sessionLog.Error("nextWriter error", zap.String("session.id", s.ID), zap.Error(err))
+				sessionLog.Error("nextWriter error", zap.String("session.id", s.ID), zap.Error(err))
 				return
 			}
 
 			if _, err := w.Write(message); err != nil {
-				// sessionLog.Error("write error", zap.String("session.id", s.ID), zap.Error(err))
+				sessionLog.Error("write error", zap.String("session.id", s.ID), zap.Error(err))
 				return
 			}
 
 			if err := w.Close(); err != nil {
-				// sessionLog.Error("writer close error", zap.String("session.id", s.ID), zap.Error(err))
+				sessionLog.Error("writer close error", zap.String("session.id", s.ID), zap.Error(err))
 				return
 			}
 
