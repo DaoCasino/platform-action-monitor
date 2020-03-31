@@ -38,6 +38,7 @@ func fetchAllEvents(ctx context.Context, conn DatabaseConnect, offset uint64, co
 
 	events := make([]*Event, 0, len(dataset))
 	for _, data := range dataset {
+		data := data
 		if event, err := abiDecoder.Decode(data.actData); err == nil {
 			event.Offset = data.offset
 			events = append(events, event)
