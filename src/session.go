@@ -332,7 +332,7 @@ func (s *Session) sendMessages(parentContext context.Context, topic string, offs
 }
 
 func (s *Session) sendQueueMessages(parentContext context.Context) {
-	sessionLog.Debug("sendQueueMessages")
+	sessionLog.Debug("sendQueueMessages", zap.String("session.id", s.ID))
 
 	events, err := filterEventsFromOffset(s.queueMessages.events, s.offset)
 	if err != nil {
@@ -353,7 +353,7 @@ func (s *Session) sendQueueMessages(parentContext context.Context) {
 
 	select {
 	case <-parentContext.Done():
-		sessionLog.Debug("sendQueueMessages parent context done")
+		sessionLog.Debug("sendQueueMessages parent context done", zap.String("session.id", s.ID))
 	case s.send <- eventMessage:
 		metrics.EventsTotal.Add(float64(len(events)))
 	default:
