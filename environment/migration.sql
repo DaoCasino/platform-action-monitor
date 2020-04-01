@@ -12,3 +12,5 @@ CREATE TRIGGER action_trace_insert
     ON chain.action_trace
     FOR EACH ROW
 EXECUTE PROCEDURE chain.action_trace_notify_trigger();
+
+CREATE INDEX ON chain.action_trace USING btree (act_name, receipt_global_sequence asc);
