@@ -33,7 +33,7 @@ func TestFetchAllActionData(t *testing.T) {
 	config.db.filter.actName = &testFilter
 	config.db.filter.actAccount = &testFilter
 
-	result, _ = fetchAllActionData(context.Background(), mock, 0, 1, &config.db.filter)
+	result, _ = fetchAllActionData(context.Background(), mock, 0, 1, &config.eventExpires, &config.db.filter)
 	// require.NoError(t, err)
 	assert.Equal(t, len(result), 0)
 }

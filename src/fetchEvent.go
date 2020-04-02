@@ -30,8 +30,9 @@ func fetchEvent(ctx context.Context, conn DatabaseConnect, offset uint64) (*Even
 
 func fetchAllEvents(ctx context.Context, conn DatabaseConnect, offset uint64, count uint) ([]*Event, error) {
 	filter := config.db.filter
+	eventExpires := config.eventExpires
 
-	dataset, err := fetchAllActionData(ctx, conn, offset, count, &filter)
+	dataset, err := fetchAllActionData(ctx, conn, offset, count, &eventExpires, &filter)
 	if err != nil {
 		return nil, err
 	}

@@ -51,10 +51,12 @@ func (s *SqlQuery) getRow() (string, []interface{}) {
 	return sql, s.value
 }
 
-func (s *SqlQuery) getRows() (string, []interface{}) {
-	s.key = append(s.key, fmt.Sprintf(sqlWhereEventExpires, config.eventExpires))
-	where := strings.Join(s.key, sqlWhereAnd)
+func (s *SqlQuery) getRows(eventExpires *string) (string, []interface{}) {
+	if eventExpires != nil {
+		s.key = append(s.key, fmt.Sprintf(sqlWhereEventExpires, *eventExpires))
+	}
 
+	where := strings.Join(s.key, sqlWhereAnd)
 	sql := fmt.Sprintf(sqlFetchActions, where)
 	return sql, s.value
 }
@@ -70,10 +72,10 @@ func fetchActionData(ctx context.Context, db DatabaseConnect, offset uint64, fil
 	return rows, err
 }
 
-func fetchAllActionData(ctx context.Context, db DatabaseConnect, offset uint64, count uint, filter *DatabaseFilters) ([]*ActionTraceRows, error) {
+func fetchAllActionData(ctx context.Context, db DatabaseConnect, offset uint64, count uint, eventExpires *string, filter *DatabaseFilters) ([]*ActionTraceRows, error) {
 	s := newSqlQuery(filter)
 	s.append("action_trace.receipt_global_sequence >=", offset)
-	sql, args := s.getRows()
+	sql, args := s.getRows(eventExpires)
 
 	if count != 0 {
 		args = append(args, count)
