@@ -17,14 +17,23 @@ type SqlQuery struct {
 	value []interface{}
 }
 
+const (
+	sqlFetchAction       = "SELECT action_trace.act_data, action_trace.receipt_global_sequence AS offset FROM chain.action_trace WHERE %s ORDER BY action_trace.receipt_global_sequence ASC"
+	sqlFetchActions      = "SELECT action_trace.act_data, action_trace.receipt_global_sequence AS offset FROM chain.action_trace INNER JOIN chain.block_info ON block_info.block_num = action_trace.block_num WHERE %s ORDER BY action_trace.receipt_global_sequence ASC"
+	sqlWhereEventExpires = "block_info.timestamp > now() - interval '%s'"
+	sqlWhereActAccount   = "action_trace.act_account="
+	sqlWhereActName      = "action_trace.act_name="
+	sqlWhereAnd          = " AND "
+)
+
 func newSqlQuery(filter *DatabaseFilters) *SqlQuery {
 	s := &SqlQuery{make([]string, 0), make([]interface{}, 0)}
 
 	if filter.actAccount != nil {
-		s.append("act_account=", *filter.actAccount)
+		s.append(sqlWhereActAccount, *filter.actAccount)
 	}
 	if filter.actName != nil {
-		s.append("act_name=", *filter.actName)
+		s.append(sqlWhereActName, *filter.actName)
 	}
 
 	return s
@@ -35,18 +44,26 @@ func (s *SqlQuery) append(key string, value interface{}) {
 	s.key = append(s.key, fmt.Sprintf("%s$%d", key, len(s.value)))
 }
 
-func (s *SqlQuery) get() (string, []interface{}) {
-	where := strings.Join(s.key, " AND ")
-	sql := fmt.Sprintf("SELECT act_data, receipt_global_sequence AS offset FROM chain.action_trace WHERE %s ORDER BY receipt_global_sequence ASC", where)
+func (s *SqlQuery) getRow() (string, []interface{}) {
+	where := strings.Join(s.key, sqlWhereAnd)
+	sql := fmt.Sprintf(sqlFetchAction, where)
 
+	return sql, s.value
+}
+
+func (s *SqlQuery) getRows() (string, []interface{}) {
+	s.key = append(s.key, fmt.Sprintf(sqlWhereEventExpires, config.eventExpires))
+	where := strings.Join(s.key, sqlWhereAnd)
+
+	sql := fmt.Sprintf(sqlFetchActions, where)
 	return sql, s.value
 }
 
 func fetchActionData(ctx context.Context, db DatabaseConnect, offset uint64, filter *DatabaseFilters) (*ActionTraceRows, error) {
 	s := newSqlQuery(filter)
-	s.append("receipt_global_sequence=", offset)
+	s.append("action_trace.receipt_global_sequence =", offset)
 
-	sql, args := s.get()
+	sql, args := s.getRow()
 	rows := new(ActionTraceRows)
 
 	err := db.QueryRow(ctx, sql, args...).Scan(&rows.actData, &rows.offset)
@@ -55,11 +72,10 @@ func fetchActionData(ctx context.Context, db DatabaseConnect, offset uint64, fil
 
 func fetchAllActionData(ctx context.Context, db DatabaseConnect, offset uint64, count uint, filter *DatabaseFilters) ([]*ActionTraceRows, error) {
 	s := newSqlQuery(filter)
-	s.append("receipt_global_sequence >=", offset)
+	s.append("action_trace.receipt_global_sequence >=", offset)
+	sql, args := s.getRows()
 
-	sql, args := s.get()
-
-	if count != 0 { // TODO: not tested
+	if count != 0 {
 		args = append(args, count)
 		sql += fmt.Sprintf(" LIMIT $%d", len(args))
 	}

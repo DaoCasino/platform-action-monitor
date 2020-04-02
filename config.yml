@@ -17,3 +17,4 @@ abi:
   events:
     0: ../event.abi
     1: ../event.abi
+eventExpires: 1 hour
