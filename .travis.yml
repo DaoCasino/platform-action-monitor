@@ -1,0 +1,17 @@
+language: go
+go:
+  - 1.13.4
+services:
+  - docker
+git:
+  - depth: 1
+notification:
+  email: false
+env:
+  - DOCKER_TAG_LATEST=true
+  - DOCKER_REGISTRY=test
+script:
+  - make build
+  - make test
+#  - make package
+#  - make publish
