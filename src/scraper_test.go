@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -58,4 +59,22 @@ func TestScraperUnsubscribe(t *testing.T) {
 
 func TestBroadcastMessage(t *testing.T) {
 	t.Skip("need mock websocket connection")
+}
+
+func TestGetOffsetMessage(t *testing.T) {
+	s := newScraper()
+	s.offset = 666
+
+	parentContext, cancel := context.WithCancel(context.Background())
+	go s.run(parentContext)
+
+	msg := &ScraperGetOffsetMessage{
+		response: make(chan *ScraperResponseMessage),
+	}
+	s.getOffset <- msg
+
+	res := <-msg.response
+	assert.Equal(t, s.offset, res.result)
+
+	cancel()
 }
