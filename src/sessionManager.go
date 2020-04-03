@@ -54,7 +54,7 @@ func (s *SessionManager) run(parentContext context.Context) {
 			metrics.UsersOnline.Inc()
 		case session := <-s.unregister:
 			if _, ok := s.sessions[session]; ok {
-				scraper.unsubscribeSession <- session
+				session.scraper.unsubscribeSession <- session
 
 				delete(s.sessions, session)
 				close(session.queue)
