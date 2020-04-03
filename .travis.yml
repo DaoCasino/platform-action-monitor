@@ -14,21 +14,20 @@ notifications:
 jobs:
   include:
     - stage: lint & test
+      if: (branch IN (master,develop)) AND (type IN (push, pull_request))
       script:
-        - make lint
         - make test
     - stage: build
+      if: (branch IN (master,develop)) AND (type IN (push, pull_request))
       script:
         - make build
     - stage: package
-      if: branch = master
+      if: (branch = master) AND (type = push)
       script:
         - make package
         - make publish
     - stage: promote
-      if: branch = master
-      on:
-        tags: true
+      if: tag =~ ^v[0-9]+\.[0-9]+\.[0-9]+
       script:
         - make promote
 
