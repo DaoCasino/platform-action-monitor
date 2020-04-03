@@ -79,7 +79,9 @@ func (s *Session) readPump(parentContext context.Context) {
 	defer func() {
 		cancel()
 		sessionManager.unregister <- s
-		s.conn.Close()
+		if err := s.conn.Close(); err != nil {
+			sessionLog.Error("readPump connection close", zap.String("session.id", s.ID), zap.Error(err))
+		}
 
 		sessionLog.Debug("readPump close", zap.String("session.id", s.ID))
 	}()
@@ -87,8 +89,10 @@ func (s *Session) readPump(parentContext context.Context) {
 	sessionLog.Debug("readPump start", zap.String("session.id", s.ID))
 
 	s.conn.SetReadLimit(config.session.maxMessageSize)
-	s.conn.SetReadDeadline(time.Now().Add(config.session.pongWait))
-	s.conn.SetPongHandler(func(string) error { s.conn.SetReadDeadline(time.Now().Add(config.session.pongWait)); return nil })
+	if err := s.conn.SetReadDeadline(time.Now().Add(config.session.pongWait)); err != nil {
+		return
+	}
+	s.conn.SetPongHandler(func(string) error { return s.conn.SetReadDeadline(time.Now().Add(config.session.pongWait)) })
 
 	for {
 		select {
@@ -149,7 +153,10 @@ func (s *Session) writePump(parentContext context.Context) {
 	defer func() {
 		cancel()
 		ticker.Stop()
-		s.conn.Close()
+
+		if err := s.conn.Close(); err != nil {
+			sessionLog.Error("writePump connection close", zap.Error(err), zap.String("session.id", s.ID))
+		}
 
 		sessionLog.Debug("writePump close", zap.String("session.id", s.ID))
 	}()
@@ -164,7 +171,11 @@ func (s *Session) writePump(parentContext context.Context) {
 			return
 
 		case message, ok := <-s.send:
-			s.conn.SetWriteDeadline(time.Now().Add(config.session.writeWait))
+			if err := s.conn.SetWriteDeadline(time.Now().Add(config.session.writeWait)); err != nil {
+				sessionLog.Error("SetWriteDeadline error", zap.String("session.id", s.ID), zap.Error(err))
+				return
+			}
+
 			if !ok {
 				// The session closed the channel.
 				if err := s.conn.WriteMessage(websocket.CloseMessage, []byte{}); err != nil {
@@ -190,7 +201,10 @@ func (s *Session) writePump(parentContext context.Context) {
 			}
 
 		case <-ticker.C:
-			s.conn.SetWriteDeadline(time.Now().Add(config.session.writeWait))
+			if err := s.conn.SetWriteDeadline(time.Now().Add(config.session.writeWait)); err != nil {
+				sessionLog.Error("SetWriteDeadline error", zap.String("session.id", s.ID), zap.Error(err))
+				return
+			}
 			if err := s.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				sessionLog.Error("ping message error", zap.String("session.id", s.ID), zap.Error(err))
 				return

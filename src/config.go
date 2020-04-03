@@ -1,6 +1,7 @@
 package main
 
 import (
+	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 	"io"
 	"os"
@@ -33,7 +34,6 @@ const (
 	// path to files
 	defaultContractABI = "../contract.abi"
 	defaultEventABI    = "../event.abi"
-	defaultConfigFile  = "../config.yml" // TODO: remove ../
 
 	// pool_max_conns: integer greater than 0
 	// pool_min_conns: integer 0 or greater
@@ -92,7 +92,7 @@ type ConfigFile struct {
 		Filter struct {
 			Name    string `yaml:"name"`
 			Account string `yaml:"account"`
-		} `yaml: "filter"`
+		} `yaml:"filter"`
 	} `yaml:"database"`
 
 	Server struct {
@@ -178,7 +178,11 @@ func (c *Config) loadFromFile(filename *string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() {
+		if err := f.Close(); err != nil {
+			mainLog.Error("loadFromFile error", zap.Error(err))
+		}
+	}()
 
 	var configFile *ConfigFile
 	configFile, err = newConfigFile(f)

@@ -29,7 +29,7 @@ func (p *methodSubscribeParams) isValid() bool {
 	return p.Topic != ""
 }
 
-func (p *methodSubscribeParams) execute(ctx context.Context, session *Session) (methodResult, error) {
+func (p *methodSubscribeParams) execute(_ context.Context, session *Session) (methodResult, error) {
 	methodLog.Debug("> subscribe",
 		zap.String("topic", p.Topic),
 		zap.Uint64("offset", p.Offset),
@@ -60,7 +60,7 @@ func (p *methodUnsubscribeParams) isValid() bool {
 	return p.Topic != ""
 }
 
-func (p *methodUnsubscribeParams) execute(ctx context.Context, session *Session) (methodResult, error) {
+func (p *methodUnsubscribeParams) execute(_ context.Context, session *Session) (methodResult, error) {
 	methodLog.Debug("> unsubscribe", zap.String("topic", p.Topic), zap.String("session.id", session.ID))
 
 	message := &ScraperUnsubscribeMessage{
@@ -75,7 +75,7 @@ func (p *methodUnsubscribeParams) execute(ctx context.Context, session *Session)
 	return response.result, response.err
 }
 
-func (p *methodUnsubscribeParams) after(ctx context.Context, session *Session) {
+func (p *methodUnsubscribeParams) after(_ context.Context, _ *Session) {
 	methodLog.Debug("after unsubscribe")
 }
 
@@ -84,10 +84,8 @@ func methodExecutorFactory(method string) (methodExecutor, error) {
 	switch method {
 	case methodSubscribe:
 		params = new(methodSubscribeParams)
-		break
 	case methodUnsubscribe:
 		params = new(methodUnsubscribeParams)
-		break
 	default:
 		return nil, fmt.Errorf("method not found")
 	}

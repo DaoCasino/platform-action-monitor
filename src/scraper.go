@@ -85,9 +85,7 @@ func (s *Scraper) run(parentContext context.Context) {
 
 		case session := <-s.unsubscribeSession:
 			for name, topicSessions := range s.topics {
-				if _, ok := topicSessions[session]; ok {
-					delete(topicSessions, session)
-				}
+				delete(topicSessions, session)
 
 				if len(topicSessions) == 0 {
 					delete(s.topics, name)
@@ -216,6 +214,7 @@ func (s *Scraper) listen(parentContext context.Context) {
 				offset, err := strconv.ParseInt(notification.Payload, 10, 64)
 				if err != nil {
 					scraperLog.Error("parseInt error", zap.Error(err))
+					cancelWaitForNotification()
 					return
 				}
 
