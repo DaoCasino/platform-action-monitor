@@ -1,6 +1,6 @@
 include includes.mk
 
-PHONY: help install build package publish test deploy clean
+PHONY: help install build package publish test deploy clean promote
 
 
 APP ?= platform-action-monitor
@@ -41,6 +41,10 @@ deploy:	## deploy
 
 clean: 	## clean
 	@rm -f platform-action-monitor coverage.txt
+
+
+promote: ## promote artefact
+	@echo "=> promoting artefact"
 
 
 help:

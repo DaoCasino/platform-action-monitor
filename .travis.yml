@@ -11,10 +11,26 @@ services:
 notifications:
   email: false
 
-script:
-  - make build
-  - make test
-#  - make package
-#  - make publish
+jobs:
+  include:
+    - stage: test
+      script:
+        - make test
+    - stage: build
+      script:
+        - make build
+    - stage: package
+      on:
+        branch: master
+      script:
+        - make package
+        - make publish
+    - stage: promote
+      on:
+        tags: true
+        branch: master
+      script:
+        - make promote
+
 after_success:
   - bash <(curl -s https://codecov.io/bash)
