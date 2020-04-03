@@ -1,3 +1,5 @@
+SHELL := /bin/bash
+
 GIT_BRANCH := $(shell git symbolic-ref --short -q HEAD)
 GIT_HASH := $(shell git rev-parse --short HEAD)
 
@@ -11,6 +13,7 @@ DOCKER_TAG_LATEST ?= false
 
 GO = go
 GO_FLAGS ?= CGO_ENABLED=0 GOOS=linux GOARCH=amd64
+GO_LDFLAAGS ?= -ldflags="-X 'main.Version=$(VERSION)'"
 
 ifneq (${DOCKER_REGISTRY_ORG},)
 	DOCKER_REPO=$(DOCKER_REGISTRY)/$(DOCKER_REGISTRY_ORG)

@@ -3,7 +3,9 @@ environment/database/
 protocol_features/
 nodeos.log
 .idea/
+.projectile
 **/node_modules/
 **/.DS_Store
 vendor/
 loadtest.yml
+platform-action-monitor
