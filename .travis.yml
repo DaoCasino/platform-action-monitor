@@ -1,0 +1,36 @@
+language: go
+go:
+  - 1.13.4
+
+env:
+  - DOCKER_TAG_LATEST=true DOCKER_REGISTRY=registry.hub.docker.com DOCKER_REGISTRY_ORG=daocasino
+
+services:
+  - docker
+
+notifications:
+  email: false
+
+jobs:
+  include:
+    - stage: lint & test
+      script:
+        - make lint
+        - make test
+    - stage: build
+      script:
+        - make build
+    - stage: package
+      if: branch = master
+      script:
+        - make package
+        - make publish
+    - stage: promote
+      if: branch = master
+      on:
+        tags: true
+      script:
+        - make promote
+
+after_success:
+  - bash <(curl -s https://codecov.io/bash)
