@@ -3,7 +3,7 @@ go:
   - 1.13.4
 
 env:
-  - DOCKER_TAG_LATEST=true DOCKER_REGISTRY=test
+  - DOCKER_TAG_LATEST=true DOCKER_REGISTRY=registry.hub.docker.com DOCKER_REGISTRY_ORG=daocasino
 
 services:
   - docker
@@ -13,8 +13,9 @@ notifications:
 
 jobs:
   include:
-    - stage: test
+    - stage: lint & test
       script:
+        - make lint
         - make test
     - stage: build
       script:
@@ -28,7 +29,6 @@ jobs:
       if: branch = master
       on:
         tags: true
-        branch: master
       script:
         - make promote
 
