@@ -63,7 +63,7 @@ func TestConfigAssign(t *testing.T) {
 	configFile, err := newConfigFile(reader)
 	require.NoError(t, err)
 
-	config.assign(configFile)
+	err = config.assign(configFile)
 	require.NoError(t, err)
 
 	assert.Equal(t, "postgres://test:test@localhost/testCase", config.db.url)
@@ -88,7 +88,8 @@ func TestConfigAssign(t *testing.T) {
 	configFile.Database.Filter.Name = ""
 	configFile.Database.Filter.Account = ""
 
-	config.assign(configFile)
+	err = config.assign(configFile)
+	require.NoError(t, err)
 
 	assert.Nil(t, config.db.filter.actName)
 	assert.Nil(t, config.db.filter.actAccount)

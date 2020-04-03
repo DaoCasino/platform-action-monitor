@@ -22,10 +22,12 @@ func TestDecodeAction(t *testing.T) {
 
 	data := []byte(`{"data":"","event_type":4,"req_id":3,"game_id":2,"casino_id":1,"sender":"test"}`)
 
-	encodeBytes, err := decoder.abi.EncodeAction(eos.ActionName(defaultContractActionName), data)
+	var encodeBytes, decodeBytes []byte
+	encodeBytes, err = decoder.abi.EncodeAction(eos.ActionName(defaultContractActionName), data)
 	require.NoError(t, err)
 
-	decodeBytes, err := decoder.decodeAction(encodeBytes, defaultContractActionName)
+	decodeBytes, err = decoder.decodeAction(encodeBytes, defaultContractActionName)
+	require.NoError(t, err)
 	assert.Equal(t, data, decodeBytes)
 }
 
@@ -44,7 +46,10 @@ func TestDecodeStruct(t *testing.T) {
 	require.NoError(t, err)
 
 	data := createStructData(t, 1, 2)
-	decodeBytes, err := decoder.decodeStruct(data, defaultEventStructName)
+
+	var decodeBytes []byte
+	decodeBytes, err = decoder.decodeStruct(data, defaultEventStructName)
+	require.NoError(t, err)
 
 	eventData := new(TestEventData)
 	err = json.Unmarshal(decodeBytes, &eventData)

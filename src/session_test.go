@@ -166,21 +166,18 @@ func TestSessionSendQueueMessages(t *testing.T) {
 	go func() {
 		defer wg.Done()
 
-		for {
-			select {
-			case data := <-session.send:
-				responseMessage := new(ResponseMessage)
-				eventMessage := new(EventMessage)
+		for data := range session.send {
+			responseMessage := new(ResponseMessage)
+			eventMessage := new(EventMessage)
 
-				err := json.Unmarshal(data, responseMessage)
-				require.NoError(t, err)
+			err := json.Unmarshal(data, responseMessage)
+			require.NoError(t, err)
 
-				err = json.Unmarshal(responseMessage.Result, &eventMessage)
-				require.NoError(t, err)
+			err = json.Unmarshal(responseMessage.Result, &eventMessage)
+			require.NoError(t, err)
 
-				assert.Equal(t, numEvents, len(eventMessage.Events))
-				return
-			}
+			assert.Equal(t, numEvents, len(eventMessage.Events))
+			return
 		}
 	}()
 
@@ -207,21 +204,18 @@ func TestSessionSendMessages(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		for {
-			select {
-			case data := <-session.send:
-				responseMessage := new(ResponseMessage)
-				eventMessage := new(EventMessage)
+		for data := range session.send {
+			responseMessage := new(ResponseMessage)
+			eventMessage := new(EventMessage)
 
-				err := json.Unmarshal(data, responseMessage)
-				require.NoError(t, err)
+			err := json.Unmarshal(data, responseMessage)
+			require.NoError(t, err)
 
-				err = json.Unmarshal(responseMessage.Result, &eventMessage)
-				require.NoError(t, err)
+			err = json.Unmarshal(responseMessage.Result, &eventMessage)
+			require.NoError(t, err)
 
-				assert.Equal(t, numEvents, len(eventMessage.Events))
-				return
-			}
+			assert.Equal(t, numEvents, len(eventMessage.Events))
+			return
 		}
 	}()
 
