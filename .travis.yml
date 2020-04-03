@@ -1,13 +1,16 @@
 language: go
 go:
   - 1.13.4
+
+env:
+  - DOCKER_TAG_LATEST=true DOCKER_REGISTRY=test
+
 services:
   - docker
+
 notifications:
   email: false
-env:
-  - DOCKER_TAG_LATEST=true
-  - DOCKER_REGISTRY=test
+
 script:
   - make build
   - make test
