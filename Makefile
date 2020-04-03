@@ -32,7 +32,7 @@ endif
 
 test:	## run all test suites
 	@echo "=> running all available tests"
-	@go test -race -coverprofile=coverage.txt -cover ./...
+	@go test -race -coverprofile=coverage.txt -covermode=atomic ./...
 
 
 deploy:	## deploy
