@@ -300,8 +300,8 @@ func (s *Session) sendMessages(parentContext context.Context, topic string, offs
 		return
 	}
 
-	lastOffset := int64(response.result.(uint64))
-	sessionLog.Debug("current offset", zap.Int64("offset", lastOffset))
+	lastOffset := int64(response.result.(uint64) - offset)
+	sessionLog.Debug("", zap.Uint64("scraper offset", response.result.(uint64)), zap.Int64("client max offset", lastOffset))
 
 	var conn *pgxpool.Conn
 	conn, err = pool.Acquire(parentContext)

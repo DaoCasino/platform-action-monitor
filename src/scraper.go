@@ -86,6 +86,7 @@ func (s *Scraper) run(parentContext context.Context) {
 			}
 
 		case session := <-s.unsubscribeSession:
+			s.Lock()
 			for name, topicSessions := range s.topics {
 				if _, ok := topicSessions[session]; ok {
 					delete(topicSessions, session)
@@ -95,6 +96,7 @@ func (s *Scraper) run(parentContext context.Context) {
 					delete(s.topics, name)
 				}
 			}
+			s.Unlock()
 
 		case message := <-s.subscribe:
 			scraperLog.Debug("subscribe",
