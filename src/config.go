@@ -44,6 +44,9 @@ const (
 	//   # Example URL
 	//   postgres://jack:secret@pg.example.com:5432/mydb?sslmode=verify-ca&pool_max_conns=10
 	defaultDatabaseUrl = "postgres://test:test@localhost/test"
+
+	// Life time event, use in fetchAllEvents SQL query block.timestamp > now() - interval '1 day'
+	defaultEventExpires = "1 hour"
 )
 
 type SessionConfig struct {
@@ -80,6 +83,7 @@ type Config struct {
 	session       SessionConfig
 	upgrader      UpgraderConfig
 	abi           AbiConfig
+	eventExpires  string
 }
 
 type ConfigFile struct {
@@ -110,6 +114,8 @@ type ConfigFile struct {
 		Main   string         `yaml:"main"`
 		Events map[int]string `yaml:"events"`
 	} `yaml:"abi"`
+
+	EventExpires string `yaml:"eventExpires"`
 }
 
 func newDefaultConfig() *Config {
@@ -119,6 +125,7 @@ func newDefaultConfig() *Config {
 		session:       SessionConfig{defaultWriteWait, defaultPongWait, defaultPingPeriod, defaultMaxMessageSize},
 		upgrader:      UpgraderConfig{defaultReadBufferSize, defaultWriteBufferSize},
 		abi:           AbiConfig{main: defaultContractABI, events: make(map[int]string)},
+		eventExpires:  defaultEventExpires,
 	}
 
 	config.abi.events[0] = defaultEventABI
@@ -159,6 +166,10 @@ func (c *Config) assign(target *ConfigFile) (err error) {
 	c.upgrader.readBufferSize = target.Upgrader.ReadBufferSize
 
 	c.serverAddress = target.Server.Addr
+
+	if target.EventExpires != "" {
+		c.eventExpires = target.EventExpires
+	}
 	return
 }
 

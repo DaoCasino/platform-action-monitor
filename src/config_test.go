@@ -28,6 +28,7 @@ abi:
   events:
     0: event_0.abi
     1: event_1.abi
+eventExpires: 1 day
 `
 
 func TestConfigFile(t *testing.T) {
@@ -51,6 +52,8 @@ func TestConfigFile(t *testing.T) {
 	assert.Equal(t, 2, len(configFile.Abi.Events))
 	assert.Equal(t, "event_0.abi", configFile.Abi.Events[0])
 	assert.Equal(t, "contract_test.abi", configFile.Abi.Main)
+
+	assert.Equal(t, "1 day", configFile.EventExpires)
 }
 
 func TestConfigAssign(t *testing.T) {
@@ -79,6 +82,8 @@ func TestConfigAssign(t *testing.T) {
 	assert.Equal(t, 2, len(config.abi.events))
 	assert.Equal(t, "event_0.abi", config.abi.events[0])
 	assert.Equal(t, "contract_test.abi", config.abi.main)
+
+	assert.Equal(t, "1 day", config.eventExpires)
 
 	configFile.Database.Filter.Name = ""
 	configFile.Database.Filter.Account = ""

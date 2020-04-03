@@ -13,6 +13,9 @@ import (
 	"time"
 )
 
+// Count of events in one message, affects the count of allocated memory
+const maxEventsInMessage = 100 // TODO: in config?
+
 type Queue struct {
 	flag   *abool.AtomicBool
 	events []*Event
@@ -285,6 +288,21 @@ func (s *Session) sendMessages(parentContext context.Context, topic string, offs
 		return
 	}
 
+	// Select current offset
+	msg := &ScraperGetOffsetMessage{
+		response: make(chan *ScraperResponseMessage),
+	}
+	s.scraper.getOffset <- msg
+	response := <-msg.response
+
+	if response.err != nil {
+		sessionLog.Error("get last offset error", zap.Error(err))
+		return
+	}
+
+	lastOffset := int64(response.result.(uint64) - offset)
+	sessionLog.Debug("", zap.Uint64("scraper offset", response.result.(uint64)), zap.Int64("client max offset", lastOffset))
+
 	var conn *pgxpool.Conn
 	conn, err = pool.Acquire(parentContext)
 	if err != nil {
@@ -298,14 +316,26 @@ func (s *Session) sendMessages(parentContext context.Context, topic string, offs
 		s.queueMessages.open() // TODO: <- check done?
 	}()
 
-	var events []*Event
-	events, err = fetchAllEvents(parentContext, conn.Conn(), offset, 0)
-	if err != nil {
-		sessionLog.Error("fetch all events error", zap.Error(err))
-		return
-	}
+	for ; lastOffset > 0; lastOffset -= maxEventsInMessage {
+		var count uint
+		if lastOffset-maxEventsInMessage < 0 {
+			count = 0
+		} else {
+			count = maxEventsInMessage
+		}
 
-	if len(events) > 0 {
+		// sessionLog.Debug("fetchAllEvents", zap.Uint64("offset", offset), zap.Uint("count", count), zap.Int64("lastOffset", lastOffset))
+
+		events, err := fetchAllEvents(parentContext, conn.Conn(), offset, count)
+		if err != nil {
+			sessionLog.Error("fetch all events error", zap.Error(err))
+			return
+		}
+
+		if len(events) == 0 {
+			break
+		}
+
 		filteredEvents := filterEventsByEventType(events, eventType)
 
 		if len(filteredEvents) > 0 {
@@ -328,6 +358,7 @@ func (s *Session) sendMessages(parentContext context.Context, topic string, offs
 		}
 
 		s.setOffset(events[len(events)-1].Offset)
+		offset = s.offset + 1
 	}
 }
 
