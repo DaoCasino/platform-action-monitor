@@ -20,12 +20,12 @@ jobs:
       script:
         - make build
     - stage: package
-      on:
-        branch: master
+      if: branch = master
       script:
         - make package
         - make publish
     - stage: promote
+      if: branch = master
       on:
         tags: true
         branch: master
