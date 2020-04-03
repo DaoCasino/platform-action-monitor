@@ -8,7 +8,7 @@ import (
 )
 
 func TestMethodExecutorFactory(t *testing.T) {
-	_, err := methodExecutorFactory("test")
+	_, err := methodExecutorFactory("test_0")
 	require.Error(t, err)
 }
 
@@ -16,7 +16,7 @@ func TestMethodSubscribe(t *testing.T) {
 	session, teardownTestCase := setupSessionTestCase(t)
 	defer teardownTestCase(t)
 
-	subscribe := &methodSubscribeParams{Topic: "test"}
+	subscribe := &methodSubscribeParams{Topic: "test_0"}
 	result, err := subscribe.execute(context.Background(), session)
 	require.NoError(t, err)
 	assert.Equal(t, true, result)
@@ -26,7 +26,7 @@ func TestMethodUnsubscribe(t *testing.T) {
 	session, teardownTestCase := setupSessionTestCase(t)
 	defer teardownTestCase(t)
 
-	const topicName = "test"
+	const topicName = "test_0"
 
 	ctx := context.Background()
 
