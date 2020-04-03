@@ -17,15 +17,15 @@ build:	## build binary
 
 
 package:  ## package docker image
-	@echo "=> packaging $(DOCKER_IMAGE)"
+	@echo "=> packaging $(DOCKER_REPO)/$(APP):$(VERSION)"
 	@docker build -t $(DOCKER_IMAGE) -f $(DOCKERFILE) $(DOCKER_CONTEXT)
 
 
 publish: ## publish docker image
 	@echo "=> pushing $(DOCKER_IMAGE)"
-	@echo 'docker push $(DOCKER_REPO)/$(APP):$(VERSION)'
+	@echo 'docker push $(DOCKER_IMAGE)'
 ifeq (${DOCKER_TAG_LATEST},true)
-	@echo 'docker tag $(DOCKER_REPO)/$(APP):$(VERSION) $(DOCKER_REPO)/$(APP):latest'
+	@echo 'docker tag $(DOCKER_IMAGE) $(DOCKER_REPO)/$(APP):latest'
 	@echo 'docker push $(DOCKER_REPO)/$(APP):latest'
 endif
 
