@@ -6,7 +6,6 @@ import (
 	"github.com/jackc/pgx/v4"
 	"go.uber.org/zap"
 	"strconv"
-	"sync"
 	"time"
 )
 
@@ -44,7 +43,6 @@ type Scraper struct {
 	broadcast          chan *ScraperBroadcastMessage
 	getOffset          chan *ScraperGetOffsetMessage
 
-	sync.Mutex
 	topics map[string]map[*Session]bool
 	// last offset processed
 	offset uint64
@@ -86,7 +84,6 @@ func (s *Scraper) run(parentContext context.Context) {
 			}
 
 		case session := <-s.unsubscribeSession:
-			s.Lock()
 			for name, topicSessions := range s.topics {
 				if _, ok := topicSessions[session]; ok {
 					delete(topicSessions, session)
@@ -96,7 +93,6 @@ func (s *Scraper) run(parentContext context.Context) {
 					delete(s.topics, name)
 				}
 			}
-			s.Unlock()
 
 		case message := <-s.subscribe:
 			scraperLog.Debug("subscribe",
@@ -104,7 +100,6 @@ func (s *Scraper) run(parentContext context.Context) {
 				zap.String("session.id", message.session.ID),
 			)
 
-			s.Lock()
 			if topicClients, ok := s.topics[message.name]; ok {
 				topicClients[message.session] = true
 			} else {
@@ -112,7 +107,6 @@ func (s *Scraper) run(parentContext context.Context) {
 				topicClients[message.session] = true
 				s.topics[message.name] = topicClients
 			}
-			s.Unlock()
 
 			if message.response != nil {
 				response := new(ScraperResponseMessage)
@@ -129,7 +123,6 @@ func (s *Scraper) run(parentContext context.Context) {
 
 			response := new(ScraperResponseMessage)
 
-			s.Lock()
 			if topicClients, ok := s.topics[message.name]; ok {
 				delete(topicClients, message.session)
 				if len(topicClients) == 0 {
@@ -140,7 +133,6 @@ func (s *Scraper) run(parentContext context.Context) {
 				response.result = false
 				response.err = fmt.Errorf("topic %s not exist", message.name)
 			}
-			s.Unlock()
 
 			if message.response != nil {
 				message.response <- response
