@@ -22,7 +22,7 @@ const (
 	defaultPingPeriod = (defaultPongWait * 9) / 10
 
 	// Maximum message size allowed from client.
-	defaultMaxMessageSize = 1024 * 4
+	defaultMaxMessageSize = 1024 * 10
 
 	// ReadBufferSize and WriteBufferSize specify I/O buffer sizes in bytes. If a buffer
 	// size is zero, then buffers allocated by the HTTP server are used. The
