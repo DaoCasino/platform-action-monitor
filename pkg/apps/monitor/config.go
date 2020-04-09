@@ -24,6 +24,9 @@ const (
 	// Maximum message size allowed from client.
 	defaultMaxMessageSize = 1024 * 10
 
+	// Maximum events to send per message
+	defaultMaxEventsInMessage = 50
+
 	// ReadBufferSize and WriteBufferSize specify I/O buffer sizes in bytes. If a buffer
 	// size is zero, then buffers allocated by the HTTP server are used. The
 	// I/O buffer sizes do not limit the size of the messages that can be sent
@@ -54,7 +57,8 @@ type SessionConfig struct {
 	pongWait   time.Duration
 	pingPeriod time.Duration
 
-	maxMessageSize int64
+	maxMessageSize     int64
+	maxEventsInMessage int64
 }
 
 type UpgraderConfig struct {
@@ -122,7 +126,7 @@ func newDefaultConfig() *Config {
 	config := &Config{
 		db:            DatabaseConfig{defaultDatabaseUrl, DatabaseFilters{nil, nil}},
 		serverAddress: defaultAddr,
-		session:       SessionConfig{defaultWriteWait, defaultPongWait, defaultPingPeriod, defaultMaxMessageSize},
+		session:       SessionConfig{defaultWriteWait, defaultPongWait, defaultPingPeriod, defaultMaxMessageSize, defaultMaxEventsInMessage},
 		upgrader:      UpgraderConfig{defaultReadBufferSize, defaultWriteBufferSize},
 		abi:           AbiConfig{main: defaultContractABI, events: make(map[int]string)},
 		eventExpires:  defaultEventExpires,

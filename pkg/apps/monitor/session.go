@@ -13,9 +13,6 @@ import (
 	"time"
 )
 
-// Count of events in one message, affects the count of allocated memory
-const maxEventsInMessage = 100 // TODO: in config?
-
 type Queue struct {
 	flag   *abool.AtomicBool
 	events []*Event
@@ -329,13 +326,14 @@ func (s *Session) sendMessages(parentContext context.Context, topic string, offs
 		s.sendQueueMessages(parentContext)
 		s.queueMessages.open() // TODO: <- check done?
 	}()
+	maxEventsInMessage := config.session.maxEventsInMessage
 
 	for ; lastOffset > 0; lastOffset -= maxEventsInMessage {
 		var count uint
 		if lastOffset-maxEventsInMessage < 0 {
 			count = 0
 		} else {
-			count = maxEventsInMessage
+			count = uint(maxEventsInMessage)
 		}
 
 		// sessionLog.Debug("fetchAllEvents", zap.Uint64("offset", offset), zap.Uint("count", count), zap.Int64("lastOffset", lastOffset))
