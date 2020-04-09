@@ -37,7 +37,7 @@ Option `--disable-replay-opts` is needed for `state-history-plugin`
 ### Launch service
 ```BASH
 export GO111MODULE=on
-cd src && go run .
+go run cmd/monitor/main.go -config configs/config.yml
 ```
 #### Dockerize
 ```BASH
