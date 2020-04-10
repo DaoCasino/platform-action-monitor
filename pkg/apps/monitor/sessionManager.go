@@ -33,7 +33,7 @@ func newSessionManager() *SessionManager {
 func (s *SessionManager) run(parentContext context.Context) {
 	defer func() {
 		for session := range s.sessions {
-			scraper.unsubscribeSession <- session
+			session.scraper.unsubscribeSession <- session
 
 			delete(s.sessions, session)
 			close(session.queue)

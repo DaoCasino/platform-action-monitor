@@ -3,10 +3,10 @@ package monitor
 import (
 	"context"
 	"fmt"
+	"github.com/DaoCasino/platform-action-monitor/pkg/apps/monitor/metrics"
 	"github.com/gorilla/mux"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"net/http"
-	"github.com/DaoCasino/platform-action-monitor/pkg/apps/monitor/metrics"
 )
 
 // Globals
@@ -18,7 +18,7 @@ var (
 	sessionManager *SessionManager
 )
 
-func Init(configFile *string, parentContext context.Context) (*http.Server, func(),  error) {
+func Init(configFile *string, parentContext context.Context) (*http.Server, func(), error) {
 	logger := newLogger(false)
 	EnableDebugLogging(logger)
 
@@ -56,36 +56,8 @@ func Init(configFile *string, parentContext context.Context) (*http.Server, func
 		Handler: router,
 	}
 
-	//done := make(chan os.Signal, 1)
-	//signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
-
 	go sessionManager.run(parentContext)
 	go scraper.run(parentContext)
-
-	//go func() {
-	//	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-	//		mainLog.Fatal("listen", zap.Error(err))
-	//	}
-	//}()
-
-	//mainLog.Info("server is listening", zap.String("addr", config.serverAddress))
-
-	//<-done
-	//mainLog.Debug("done signal")
-	//mainCancel()
-
-	//shutdownContextWithTimeout, cancelWaitShutdown := context.WithTimeout(parentContext, withTimeout)
-	//defer func() {
-	//	// TODO: close all connections here
-	//	pool.Close()
-	//
-	//	cancelWaitShutdown()
-	//	mainLog.Debug("connection closed")
-	//}()
-
-	//if err := srv.Shutdown(shutdownContextWithTimeout); err != nil {
-	//	mainLog.Fatal("server shutdown failed", zap.Error(err))
-	//}
 
 	closeFunc := func() {
 		pool.Close()

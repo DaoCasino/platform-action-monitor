@@ -58,7 +58,7 @@ type SessionConfig struct {
 	pingPeriod time.Duration
 
 	maxMessageSize     int64
-	maxEventsInMessage int64
+	maxEventsInMessage int
 }
 
 type UpgraderConfig struct {

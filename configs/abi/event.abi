@@ -3,7 +3,7 @@
     "types": [],
     "structs": [
         {
-            "name": "event",
+            "name": "event_data",
             "base": "",
             "fields": [
                 {
