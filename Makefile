@@ -2,71 +2,39 @@ include includes.mk
 
 PHONY: help install build package publish test deploy clean promote lint bootstrap registry-login
 
-APP ?= platform-action-monitor
+APPS ?= monitor
 
 .DEFAULT_GOAL := help
 
 
-bootstrap:
-ifndef GO_HAS_LINT
-	@go get -u github.com/golangci/golangci-lint/cmd/golangci-lint > /dev/null 2>&1
-endif
-
 
 install: ## download dependencies
-	@go mod download
+	@go mod download > /dev/null >&1
 
 
-build:	## build binary
-	@echo "=> building revision $(GIT_BRANCH):$(GIT_HASH)"
-	@$(GO_FLAGS) go build -a -o $(APP) ./src/.
-
-
-registry-login:
-ifdef DOCKER_PASSWORD
-	@echo $$DOCKER_PASSWORD | docker login -u $$DOCKER_LOGIN $$DOCKER_REGISTRY --password-stdin > /dev/null 2>&1
-else
-	$(error '!!! DOCKER_LOGIN and DOCKER_PASSWORD is required for authentication !!!')
-endif
+build:	install ## build binary
+	@$(foreach APP, $(APPS), $(MAKE) -C $(APPS_DIR)/$(APP) build ;)
 
 
 package:  ## package docker image
-	@echo "=> packaging $(DOCKER_REPO)/$(APP):$(VERSION)"
-	@docker build -t $(DOCKER_IMAGE) -f $(DOCKERFILE) $(DOCKER_CONTEXT)
-
-
-publish: registry-login ## publish docker image
-	@echo "=> pushing $(DOCKER_IMAGE)"
-	@echo 'docker push $(DOCKER_IMAGE)'
-ifeq (${DOCKER_TAG_LATEST},true)
-	@echo 'docker tag $(DOCKER_IMAGE) $(DOCKER_REPO)/$(APP):latest'
-	@echo 'docker push $(DOCKER_REPO)/$(APP):latest'
-endif
+	@$(foreach APP, $(APPS), $(MAKE) -C $(APPS_DIR)/$(APP) package ;)
 
 
 lint:   bootstrap ## run golangci-linter
-	@echo "=> linting"
-	@golangci-lint run ./...
+	@$(foreach APP, $(APPS), $(MAKE) -C $(APPS_DIR)/$(APP) lint ;)
 
 
-test:   lint ## run all test suites
-	@echo "=> running all available tests"
-	@go test -race -coverprofile=coverage.txt -covermode=atomic ./...
+test:   ## run all test suites
+	@$(foreach APP, $(APPS), $(MAKE) -C $(APPS_DIR)/$(APP) test ;)
 
 
 deploy:	## deploy
-	@echo "=> deploy $(APP):$(VERSION)"
+	@$(foreach APP, $(APPS), $(MAKE) -C $(APPS_DIR)/$(APP) deploy ;)
 
 
 clean: 	## clean
-	@rm -f platform-action-monitor coverage.txt
-
-
-promote: registry-login ## promote artefact
-	@echo "=> release"
-	@docker pull $(DOCKER_REPO)/$(APP):master-$(GIT_TAG_HASH)
-	@docker tag $(DOCKER_REPO)/$(APP):master-$(GIT_TAG_HASH) $(DOCKER_REPO)/$(APP):$(VERSION)
-	@docker push $(DOCKER_REPO)/$(APP):$(VERSION)
+	@rm -rf coverage.txt bin/
+	@$(foreach APP, $(APPS), $(MAKE) -C $(APPS_DIR)/$(APP) clean ;)
 
 
 help:
