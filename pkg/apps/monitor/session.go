@@ -346,7 +346,7 @@ func (s *Session) sendQueueMessages(parentContext context.Context) {
 		return
 	}
 
-	chunkSize := int(config.session.maxEventsInMessage) // TODO: <-
+	chunkSize := config.session.maxEventsInMessage
 
 	for i := 0; i < len(events); i += chunkSize {
 		end := i + chunkSize
