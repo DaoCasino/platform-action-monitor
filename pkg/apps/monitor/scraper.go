@@ -15,10 +15,6 @@ type ScraperSubscribeMessage struct {
 	response chan *ScraperResponseMessage
 }
 
-type ScraperGetOffsetMessage struct {
-	response chan *ScraperResponseMessage
-}
-
 type ScraperUnsubscribeMessage struct {
 	name     string
 	session  *Session
@@ -41,7 +37,6 @@ type Scraper struct {
 	subscribe          chan *ScraperSubscribeMessage
 	unsubscribe        chan *ScraperUnsubscribeMessage
 	broadcast          chan *ScraperBroadcastMessage
-	getOffset          chan *ScraperGetOffsetMessage
 
 	topics map[string]map[*Session]bool
 	// last offset processed
@@ -54,7 +49,6 @@ func newScraper() *Scraper {
 		subscribe:          make(chan *ScraperSubscribeMessage),
 		unsubscribe:        make(chan *ScraperUnsubscribeMessage),
 		broadcast:          make(chan *ScraperBroadcastMessage),
-		getOffset:          make(chan *ScraperGetOffsetMessage),
 		unsubscribeSession: make(chan *Session),
 	}
 }
@@ -74,14 +68,6 @@ func (s *Scraper) run(parentContext context.Context) {
 		case <-parentContext.Done():
 			scraperLog.Debug("scraper parent context done")
 			return
-
-		case message := <-s.getOffset:
-			if message.response != nil {
-				response := new(ScraperResponseMessage)
-				response.result, response.err = s.getLastOffset(parentContext)
-				message.response <- response
-				close(message.response)
-			}
 
 		case session := <-s.unsubscribeSession:
 			for name, topicSessions := range s.topics {
@@ -223,23 +209,4 @@ func (s *Scraper) listen(parentContext context.Context) {
 			cancelWaitForNotification()
 		}
 	}
-}
-
-func (s *Scraper) getLastOffset(parentContext context.Context) (uint64, error) {
-	if s.offset != 0 {
-		return s.offset, nil
-	}
-
-	conn, err := pool.Acquire(parentContext)
-	if err != nil {
-		scraperLog.Error("pool acquire connection error", zap.Error(err))
-		return 0, err
-	}
-
-	defer func() {
-		conn.Release()
-	}()
-
-	err = conn.QueryRow(parentContext, "SELECT max(receipt_global_sequence) AS offset FROM chain.action_trace").Scan(&s.offset)
-	return s.offset, err
 }

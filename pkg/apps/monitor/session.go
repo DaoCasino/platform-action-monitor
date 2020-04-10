@@ -299,21 +299,6 @@ func (s *Session) sendMessages(parentContext context.Context, topic string, offs
 		return
 	}
 
-	// Select current offset
-	msg := &ScraperGetOffsetMessage{
-		response: make(chan *ScraperResponseMessage),
-	}
-	s.scraper.getOffset <- msg
-	response := <-msg.response
-
-	if response.err != nil {
-		sessionLog.Error("get last offset error", zap.Error(err))
-		return
-	}
-
-	lastOffset := int64(response.result.(uint64) - offset)
-	sessionLog.Debug("", zap.Uint64("scraper offset", response.result.(uint64)), zap.Int64("client max offset", lastOffset))
-
 	var conn *pgxpool.Conn
 	conn, err = pool.Acquire(parentContext)
 	if err != nil {
@@ -326,51 +311,21 @@ func (s *Session) sendMessages(parentContext context.Context, topic string, offs
 		s.sendQueueMessages(parentContext)
 		s.queueMessages.open() // TODO: <- check done?
 	}()
-	maxEventsInMessage := config.session.maxEventsInMessage
 
-	for ; lastOffset > 0; lastOffset -= maxEventsInMessage {
-		var count uint
-		if lastOffset-maxEventsInMessage < 0 {
-			count = 0
-		} else {
-			count = uint(maxEventsInMessage)
-		}
+	events, err := fetchAllEvents(parentContext, conn.Conn(), offset, 0)
+	if err != nil {
+		sessionLog.Error("fetch all events error", zap.Error(err))
+		return
+	}
 
-		// sessionLog.Debug("fetchAllEvents", zap.Uint64("offset", offset), zap.Uint("count", count), zap.Int64("lastOffset", lastOffset))
+	if len(events) == 0 {
+		return
+	}
 
-		events, err := fetchAllEvents(parentContext, conn.Conn(), offset, count)
-		if err != nil {
-			sessionLog.Error("fetch all events error", zap.Error(err))
-			return
-		}
-
-		if len(events) == 0 {
-			break
-		}
-
-		filteredEvents := filterEventsByEventType(events, eventType)
-
-		if len(filteredEvents) > 0 {
-			eventMessage, err := newEventMessage(filteredEvents)
-			if err != nil {
-				sessionLog.Error("error create eventMessage", zap.Error(err))
-				return
-			}
-
-			select {
-			case <-parentContext.Done():
-				sessionLog.Debug("sendMessages parent context done")
-				return
-			case s.send <- eventMessage:
-				metrics.EventsTotal.Add(float64(len(filteredEvents)))
-			default:
-				sessionLog.Error("error send eventMessage")
-				return
-			}
-		}
-
-		s.setOffset(events[len(events)-1].Offset)
-		offset = s.offset + 1
+	filteredEvents := filterEventsByEventType(events, eventType)
+	for _, event := range filteredEvents {
+		event := event
+		s.queue <- event
 	}
 }
 
@@ -380,26 +335,40 @@ func (s *Session) sendQueueMessages(parentContext context.Context) {
 	events, err := filterEventsFromOffset(s.queueMessages.events, s.offset)
 	if err != nil {
 		sessionLog.Error("filterEventsFromOffset", zap.Error(err))
+		return
 	}
+
+	defer func() {
+		s.queueMessages.clean()
+	}()
 
 	if len(events) == 0 {
 		return
 	}
 
-	var eventMessage []byte
-	eventMessage, err = newEventMessage(events)
-	if err != nil {
-		sessionLog.Error("error create eventMessage", zap.Error(err))
-		return
-	}
-	s.queueMessages.clean()
+	chunkSize := int(config.session.maxEventsInMessage) // TODO: <-
 
-	select {
-	case <-parentContext.Done():
-		sessionLog.Debug("sendQueueMessages parent context done", zap.String("session.id", s.ID))
-	case s.send <- eventMessage:
-		metrics.EventsTotal.Add(float64(len(events)))
-	default:
-		sessionLog.Error("error send eventMessage")
+	for i := 0; i < len(events); i += chunkSize {
+		end := i + chunkSize
+
+		if end > len(events) {
+			end = len(events)
+		}
+
+		sendEvents := events[i:end]
+		eventMessage, err := newEventMessage(sendEvents)
+		if err != nil {
+			sessionLog.Error("error create eventMessage", zap.Error(err))
+			return
+		}
+
+		select {
+		case <-parentContext.Done():
+			sessionLog.Debug("sendQueueMessages parent context done", zap.String("session.id", s.ID))
+			return
+		case s.send <- eventMessage:
+			s.setOffset(sendEvents[len(sendEvents)-1].Offset)
+			metrics.EventsTotal.Add(float64(len(sendEvents)))
+		}
 	}
 }

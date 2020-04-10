@@ -9,7 +9,7 @@ import (
 
 const (
 	defaultContractActionName = "send"
-	defaultEventStructName    = "event"
+	defaultEventStructName    = "event_data"
 )
 
 type Decoder struct {
