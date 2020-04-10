@@ -8,4 +8,6 @@ nodeos.log
 **/.DS_Store
 vendor/
 loadtest.yml
-platform-action-monitor
+pkg/apps/monitor
+coverage.txt
+bin

@@ -1,4 +1,4 @@
-package main
+package monitor
 
 import (
 	"context"
@@ -137,11 +137,12 @@ func RandStringBytesMaskImprSrcUnsafe(n int) string {
 }
 
 func newRandomEvent() *Event {
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	return &Event{
 		Sender:    RandStringBytesMaskImprSrcUnsafe(6),
-		CasinoID:  RandStringBytesMaskImprSrcUnsafe(6),
-		GameID:    RandStringBytesMaskImprSrcUnsafe(6),
-		RequestID: RandStringBytesMaskImprSrcUnsafe(6),
+		CasinoID:  r.Uint64(),
+		GameID:    r.Uint64(),
+		RequestID: r.Uint64(),
 		EventType: 0,
 		Data:      nil,
 	}

@@ -1,10 +1,10 @@
-package main
+package monitor
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/DaoCasino/platform-action-monitor/src/metrics"
+	"github.com/DaoCasino/platform-action-monitor/pkg/apps/monitor/metrics"
 	"github.com/gorilla/websocket"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/lucsky/cuid"
@@ -326,7 +326,6 @@ func (s *Session) sendMessages(parentContext context.Context, topic string, offs
 		s.sendQueueMessages(parentContext)
 		s.queueMessages.open() // TODO: <- check done?
 	}()
-
 	maxEventsInMessage := config.session.maxEventsInMessage
 
 	for ; lastOffset > 0; lastOffset -= maxEventsInMessage {

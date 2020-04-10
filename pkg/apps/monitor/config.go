@@ -1,4 +1,4 @@
-package main
+package monitor
 
 import (
 	"go.uber.org/zap"
@@ -35,8 +35,8 @@ const (
 	defaultWriteBufferSize = 1024
 
 	// path to files
-	defaultContractABI = "../contract.abi"
-	defaultEventABI    = "../event.abi"
+	defaultContractABI = "../../../configs/abi/contract.abi"
+	defaultEventABI    = "../../../configs/abi/event.abi"
 
 	// pool_max_conns: integer greater than 0
 	// pool_min_conns: integer 0 or greater
@@ -57,7 +57,7 @@ type SessionConfig struct {
 	pongWait   time.Duration
 	pingPeriod time.Duration
 
-	maxMessageSize int64
+	maxMessageSize     int64
 	maxEventsInMessage int64
 }
 

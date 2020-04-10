@@ -13,8 +13,8 @@ upgrader:
   readBufferSize: 1024
   writeBufferSize: 1024
 abi:
-  main: ../contract.abi
+  main: configs/abi/contract.abi
   events:
-    0: ../event.abi
-    1: ../event.abi
+    0: configs/abi/event.abi
+    1: configs/abi/event.abi
 eventExpires: 1 hour

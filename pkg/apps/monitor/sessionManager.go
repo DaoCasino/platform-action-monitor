@@ -1,8 +1,8 @@
-package main
+package monitor
 
 import (
 	"context"
-	"github.com/DaoCasino/platform-action-monitor/src/metrics"
+	"github.com/DaoCasino/platform-action-monitor/pkg/apps/monitor/metrics"
 	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
 	"net/http"
