@@ -8,7 +8,7 @@ import (
 
 func TestNewEvent(t *testing.T) {
 	eventJson := []byte(`{"sender":"test","casino_id":"6842030671102619503","game_id":"8251219155248204394","req_id":"5169748975361709968","event_type":0,"data":null}`)
-	event, err := newEvent(eventJson)
+	event, err := newRawEvent(eventJson)
 
 	require.NoError(t, err)
 	assert.Equal(t, "test", event.Sender)
