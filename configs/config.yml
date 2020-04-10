@@ -1,0 +1,20 @@
+database:
+  url: postgres://test:test@localhost/test
+  filter:
+    name:
+    account:
+server:
+  addr: :8888
+session:
+  writeWait: 10s
+  pongWait: 60s
+  maxMessageSize: 4096
+upgrader:
+  readBufferSize: 1024
+  writeBufferSize: 1024
+abi:
+  main: configs/abi/contract.abi
+  events:
+    0: configs/abi/event.abi
+    1: configs/abi/event.abi
+eventExpires: 1 hour

@@ -1,0 +1,13 @@
+environment/history-tools/
+environment/database/
+protocol_features/
+nodeos.log
+.idea/
+.projectile
+**/node_modules/
+**/.DS_Store
+vendor/
+loadtest.yml
+pkg/apps/monitor
+coverage.txt
+bin
