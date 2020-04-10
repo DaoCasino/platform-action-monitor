@@ -75,13 +75,12 @@ func newAbiDecoder(c *AbiConfig) (a *AbiDecoder, e error) {
 	return
 }
 
-func (a *AbiDecoder) decodeEvent(data []byte) (*Event, error) {
+func (a *AbiDecoder) decodeEvent(data []byte) (*RawEvent, error) {
 	decodeBytes, err := a.main.decodeAction(data, defaultContractActionName)
 	if err != nil {
 		return nil, err
 	}
-	// decoderLog.Debug("decodeEvent", zap.String("json", string(decodeBytes)))
-	return newEvent(decodeBytes)
+	return newRawEvent(decodeBytes)
 }
 
 func (a *AbiDecoder) decodeEventData(event int, data []byte) ([]byte, error) {
@@ -93,18 +92,15 @@ func (a *AbiDecoder) decodeEventData(event int, data []byte) ([]byte, error) {
 }
 
 func (a *AbiDecoder) Decode(data []byte) (*Event, error) {
-	event, err := a.decodeEvent(data)
+	raw, err := a.decodeEvent(data)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(event.Data) > 0 {
-		decodeBytes, err := a.decodeEventData(event.EventType, event.Data)
-		if err != nil {
-			return nil, err
-		}
-		event.Data = decodeBytes
+	decodeBytes, err := a.decodeEventData(raw.EventType, raw.Data)
+	if err != nil {
+		return nil, err
 	}
 
-	return event, nil
+	return raw.ToEvent(decodeBytes)
 }

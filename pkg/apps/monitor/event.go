@@ -1,25 +1,82 @@
 package monitor
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"go.uber.org/zap"
 	"strconv"
 	"strings"
 )
 
+type EventDataSlice []byte
+
+func (m *EventDataSlice) MarshalJSON() ([]byte, error) {
+	return json.Marshal(hex.EncodeToString(*m))
+}
+
+func (m *EventDataSlice) UnmarshalJSON(data []byte) error {
+	str := ""
+	err := json.Unmarshal(data, &str)
+	if err != nil {
+		return err
+	}
+
+	b, err := hex.DecodeString(str)
+	if err != nil {
+		return err
+	}
+
+	*m = b
+	return nil
+}
+
+type RawEvent struct {
+	Offset    uint64         `json:"offset"`
+	Sender    string         `json:"sender"`
+	CasinoID  string         `json:"casino_id"`
+	GameID    string         `json:"game_id"`
+	RequestID string         `json:"req_id"`
+	EventType int            `json:"event_type"`
+	Data      EventDataSlice `json:"data"`
+}
+
 type Event struct {
 	Offset    uint64          `json:"offset"`
 	Sender    string          `json:"sender"`
-	CasinoID  string          `json:"casino_id"`
-	GameID    string          `json:"game_id"`
-	RequestID string          `json:"req_id"`
+	CasinoID  uint64          `json:"casino_id"`
+	GameID    uint64          `json:"game_id"`
+	RequestID uint64          `json:"req_id"`
 	EventType int             `json:"event_type"`
 	Data      json.RawMessage `json:"data"`
 }
 
-// data  - json byte string
-func newEvent(data []byte) (*Event, error) {
-	fields := new(Event)
+func (src *RawEvent) ToEvent(data json.RawMessage) (*Event, error) {
+	var err error
+
+	dst := new(Event)
+	dst.Offset = src.Offset
+	dst.Sender = src.Sender
+
+	dst.CasinoID, err = strconv.ParseUint(src.CasinoID, 10, 64)
+	if err != nil {
+		return nil, err
+	}
+	dst.GameID, err = strconv.ParseUint(src.GameID, 10, 64)
+	if err != nil {
+		return nil, err
+	}
+	dst.RequestID, err = strconv.ParseUint(src.RequestID, 10, 64)
+	if err != nil {
+		return nil, err
+	}
+	dst.EventType = src.EventType
+	dst.Data = data
+
+	return dst, nil
+}
+
+func newRawEvent(data []byte) (*RawEvent, error) {
+	fields := new(RawEvent)
 	if err := json.Unmarshal(data, fields); err != nil {
 		decoderLog.Error("parse contract fields error", zap.Error(err))
 		return nil, err
