@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-GIT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
+GIT_BRANCH := $(shell git name-rev --name-only HEAD)
 GIT_HASH := $(shell git rev-parse --short HEAD)
 GIT_TAG_HASH ?=
 
