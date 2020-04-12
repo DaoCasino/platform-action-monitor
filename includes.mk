@@ -58,18 +58,3 @@ else
 	$(error '!!! DOCKER_LOGIN and DOCKER_PASSWORD is required for authentication !!!')
 endif
 
-
-promote: registry-login ## promote artefact
-	@echo "=> release"
-	@docker pull $(DOCKER_REPO)/$(APP):master-$(GIT_TAG_HASH)
-	@docker tag $(DOCKER_REPO)/$(APP):master-$(GIT_TAG_HASH) $(DOCKER_REPO)/$(APP):$(VERSION)
-	@docker push $(DOCKER_REPO)/$(APP):$(VERSION)
-
-
-publish: registry-login ## publish docker image
-	@echo "=> pushing $(DOCKER_IMAGE)"
-	@echo 'docker push $(DOCKER_IMAGE)'
-ifeq (${DOCKER_TAG_LATEST},true)
-	@echo 'docker tag $(DOCKER_IMAGE) $(DOCKER_REPO)/$(APP):latest'
-	@echo 'docker push $(DOCKER_REPO)/$(APP):latest'
-endif

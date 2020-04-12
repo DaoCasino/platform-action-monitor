@@ -30,3 +30,19 @@ clean:
 
 deploy:
 	@echo "=> deploy $(app)"
+
+
+promote: registry-login ## promote artefact
+	@echo "=> release"
+	@docker pull $(DOCKER_REPO)/$(APP):master-$(GIT_TAG_HASH)
+	@docker tag $(DOCKER_REPO)/$(APP):master-$(GIT_TAG_HASH) $(DOCKER_REPO)/$(APP):$(VERSION)
+	@docker push $(DOCKER_REPO)/$(APP):$(VERSION)
+
+
+publish: registry-login ## publish docker image
+	@echo "=> pushing $(DOCKER_IMAGE)"
+	@docker push $(DOCKER_IMAGE)
+ifeq (${DOCKER_TAG_LATEST},true)
+	@docker tag $(DOCKER_IMAGE) $(DOCKER_REPO)/$(APP):latest
+	@docker push $(DOCKER_REPO)/$(APP):latest
+endif
