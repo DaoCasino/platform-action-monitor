@@ -16,8 +16,12 @@ build:	install ## build binary
 	@$(foreach APP, $(APPS), $(MAKE) -C $(APPS_DIR)/$(APP) build ;)
 
 
-package:  ## package docker image
+package: build  ## package docker image
 	@$(foreach APP, $(APPS), $(MAKE) -C $(APPS_DIR)/$(APP) package ;)
+
+
+publish: ## package docker image
+	@$(foreach APP, $(APPS), $(MAKE) -C $(APPS_DIR)/$(APP) publish ;)
 
 
 lint:   bootstrap ## run golangci-linter

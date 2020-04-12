@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 
-GIT_BRANCH := $(shell git name-rev --name-only HEAD)
-GIT_HASH := $(shell git rev-parse --short HEAD)
+GIT_BRANCH ?= $(shell git name-rev --name-only HEAD)
+GIT_HASH ?= $(shell git rev-parse --short HEAD)
 GIT_TAG_HASH ?=
 
 VERSION = $(GIT_BRANCH)-$(GIT_HASH)
@@ -34,12 +34,12 @@ ifdef TRAVIS_TAG
 	GIT_TAG_HASH := $(shell git rev-list -n 1 $(TRAVIS_TAG) | cut -c1-7)
 endif
 
-ifdef TRAVIS_BRANCH
-	GIT_BRANCH := $(TRAVIS_BRANCH)
+ifdef TRAVIS_PULL_REQUEST_BRANCH
+	VERSION = $(TRAVIS_PULL_REQUEST_BRANCH)-$(GIT_HASH)
 endif
 
-ifdef TRAVIS_PULL_REQUEST_BRANCH
-	GIT_BRANCH := $(TRAVIS_PULL_REUQEST_BRANCH)
+ifdef TRAVIS_BRANCH
+	VERSION = $(TRAVIS_BRANCH)-$(GIT_HASH)
 endif
 
 check-bin:
@@ -56,20 +56,4 @@ ifdef DOCKER_PASSWORD
 	@echo $$DOCKER_PASSWORD | docker login -u $$DOCKER_LOGIN $$DOCKER_REGISTRY --password-stdin > /dev/null 2>&1
 else
 	$(error '!!! DOCKER_LOGIN and DOCKER_PASSWORD is required for authentication !!!')
-endif
-
-
-promote: registry-login ## promote artefact
-	@echo "=> release"
-	@docker pull $(DOCKER_REPO)/$(APP):master-$(GIT_TAG_HASH)
-	@docker tag $(DOCKER_REPO)/$(APP):master-$(GIT_TAG_HASH) $(DOCKER_REPO)/$(APP):$(VERSION)
-	@docker push $(DOCKER_REPO)/$(APP):$(VERSION)
-
-
-publish: registry-login ## publish docker image
-	@echo "=> pushing $(DOCKER_IMAGE)"
-	@echo 'docker push $(DOCKER_IMAGE)'
-ifeq (${DOCKER_TAG_LATEST},true)
-	@echo 'docker tag $(DOCKER_IMAGE) $(DOCKER_REPO)/$(APP):latest'
-	@echo 'docker push $(DOCKER_REPO)/$(APP):latest'
 endif
