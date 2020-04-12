@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-GIT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
+GIT_BRANCH ?= $(shell git rev-parse --abbrev-ref HEAD)
 GIT_HASH := $(shell git rev-parse --short HEAD)
 GIT_TAG_HASH ?=
 
@@ -36,9 +36,7 @@ endif
 
 ifdef TRAVIS_BRANCH
 	GIT_BRANCH := $(TRAVIS_BRANCH)
-endif
-
-ifdef TRAVIS_PULL_REQUEST_BRANCH
+else
 	GIT_BRANCH := $(TRAVIS_PULL_REUQEST_BRANCH)
 endif
 
@@ -57,4 +55,3 @@ ifdef DOCKER_PASSWORD
 else
 	$(error '!!! DOCKER_LOGIN and DOCKER_PASSWORD is required for authentication !!!')
 endif
-
