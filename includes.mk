@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 
-GIT_BRANCH ?= $(shell git rev-parse --abbrev-ref HEAD)
-GIT_HASH := $(shell git rev-parse --short HEAD)
+GIT_BRANCH ?= $(shell git name-rev --name-only HEAD)
+GIT_HASH ?= $(shell git rev-parse --short HEAD)
 GIT_TAG_HASH ?=
 
 VERSION = $(GIT_BRANCH)-$(GIT_HASH)
@@ -34,10 +34,12 @@ ifdef TRAVIS_TAG
 	GIT_TAG_HASH := $(shell git rev-list -n 1 $(TRAVIS_TAG) | cut -c1-7)
 endif
 
+ifdef TRAVIS_PULL_REQUEST_BRANCH
+	VERSION = $(TRAVIS_PULL_REQUEST_BRANCH)-$(GIT_HASH)
+endif
+
 ifdef TRAVIS_BRANCH
-	GIT_BRANCH := $(TRAVIS_BRANCH)
-else
-	GIT_BRANCH := $(TRAVIS_PULL_REUQEST_BRANCH)
+	VERSION = $(TRAVIS_BRANCH)-$(GIT_HASH)
 endif
 
 check-bin:
