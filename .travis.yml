@@ -22,7 +22,7 @@ jobs:
       script:
         - make build
     - stage: package
-      if: (branch IN (master,develop)) AND (type IN (push, pull_request))
+      if: (branch IN (master)) AND (type IN (push))
       script:
         - make package
         - make publish
