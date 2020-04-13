@@ -78,10 +78,7 @@ func (s *Session) readPump(parentContext context.Context) {
 	defer func() {
 		cancel()
 		sessionManager.unregister <- s
-		if err := s.conn.Close(); err != nil {
-			sessionLog.Error("readPump connection close", zap.String("session.id", s.ID), zap.Error(err))
-		}
-
+		_ = s.conn.Close()
 		sessionLog.Debug("readPump close", zap.String("session.id", s.ID))
 	}()
 
@@ -154,11 +151,7 @@ func (s *Session) writePump(parentContext context.Context) {
 	defer func() {
 		cancel()
 		ticker.Stop()
-
-		if err := s.conn.Close(); err != nil {
-			sessionLog.Error("writePump connection close", zap.Error(err), zap.String("session.id", s.ID))
-		}
-
+		_ = s.conn.Close()
 		sessionLog.Debug("writePump close", zap.String("session.id", s.ID))
 	}()
 
