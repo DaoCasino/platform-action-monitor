@@ -106,7 +106,6 @@ type ConfigFile struct {
 	Session struct {
 		WriteWait          string `yaml:"writeWait"`
 		PongWait           string `yaml:"pongWait"`
-		MaxMessageSize     int64  `yaml:"maxMessageSize"`
 		MaxEventsInMessage int    `yaml:"maxEventsInMessage"`
 	} `yaml:"session"`
 
@@ -148,7 +147,6 @@ func (c *Config) assign(target *ConfigFile) (err error) {
 		return
 	}
 	c.session.pingPeriod = (c.session.pongWait * 9) / 10
-	c.session.maxMessageSize = target.Session.MaxMessageSize
 	c.session.maxEventsInMessage = target.Session.MaxEventsInMessage
 
 	c.db.url = target.Database.Url

@@ -8,7 +8,6 @@ server:
 session:
   writeWait: 10s
   pongWait: 60s
-  maxMessageSize: 0
   maxEventsInMessage: 50
 upgrader:
   readBufferSize: 1024
