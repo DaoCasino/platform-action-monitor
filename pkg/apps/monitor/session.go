@@ -50,6 +50,7 @@ type Session struct {
 	// Buffered channel of outbound messages.
 	send          chan []byte
 	queue         chan *Event
+	sendQueue     chan struct{}
 	queueMessages *Queue
 }
 
@@ -63,6 +64,7 @@ func newSession(scraper *Scraper, conn *websocket.Conn) *Session {
 		conn:          conn,
 		send:          make(chan []byte, 512),
 		queue:         make(chan *Event, 32),
+		sendQueue:     make(chan struct{}),
 		queueMessages: newQueue(),
 	}
 }
@@ -85,7 +87,7 @@ func (s *Session) readPump(parentContext context.Context) {
 
 	sessionLog.Debug("readPump start", zap.String("session.id", s.ID))
 
-	s.conn.SetReadLimit(config.session.maxMessageSize)
+	s.conn.SetReadLimit(config.session.messageSizeLimit)
 	if err := s.conn.SetReadDeadline(time.Now().Add(config.session.pongWait)); err != nil {
 		return
 	}
@@ -131,6 +133,8 @@ func (s *Session) queuePump(parentContext context.Context) {
 		case <-parentContext.Done():
 			sessionLog.Debug("queuePump parent context close")
 			return
+		case <-s.sendQueue:
+			s.sendQueueMessages(queuePumpContext)
 		case event, ok := <-s.queue:
 			if !ok {
 				return
@@ -308,8 +312,15 @@ func (s *Session) sendMessages(parentContext context.Context, topic string, offs
 
 	defer func() {
 		conn.Release()
-		s.sendQueueMessages(parentContext)
-		s.queueMessages.open() // TODO: <- check done?
+
+		select {
+		case <-parentContext.Done():
+			sessionLog.Debug("sendMessage parent context done")
+		case s.sendQueue <- struct{}{}:
+			s.queueMessages.open()
+		case <-time.After(time.Second):
+			sessionLog.Debug("sendQueue timeout")
+		}
 	}()
 
 	events, err := fetchAllEvents(parentContext, conn.Conn(), offset, 0)
