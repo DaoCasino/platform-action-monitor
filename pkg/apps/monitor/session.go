@@ -85,7 +85,7 @@ func (s *Session) readPump(parentContext context.Context) {
 
 	sessionLog.Debug("readPump start", zap.String("session.id", s.ID))
 
-	s.conn.SetReadLimit(config.session.maxMessageSize)
+	s.conn.SetReadLimit(config.session.messageSizeLimit)
 	if err := s.conn.SetReadDeadline(time.Now().Add(config.session.pongWait)); err != nil {
 		return
 	}
