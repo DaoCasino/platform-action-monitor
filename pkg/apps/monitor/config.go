@@ -22,7 +22,7 @@ const (
 	defaultPingPeriod = (defaultPongWait * 9) / 10
 
 	// Maximum message size allowed from client.
-	defaultMaxMessageSize = 1024 * 10
+	defaultMaxMessageSize = 0
 
 	// Maximum events to send per message
 	defaultMaxEventsInMessage = 50
@@ -104,9 +104,10 @@ type ConfigFile struct {
 	} `yaml:"server"`
 
 	Session struct {
-		WriteWait      string `yaml:"writeWait"`
-		PongWait       string `yaml:"pongWait"`
-		MaxMessageSize int64  `yaml:"maxMessageSize"`
+		WriteWait          string `yaml:"writeWait"`
+		PongWait           string `yaml:"pongWait"`
+		MaxMessageSize     int64  `yaml:"maxMessageSize"`
+		MaxEventsInMessage int    `yaml:"maxEventsInMessage"`
 	} `yaml:"session"`
 
 	Upgrader struct {
@@ -148,6 +149,7 @@ func (c *Config) assign(target *ConfigFile) (err error) {
 	}
 	c.session.pingPeriod = (c.session.pongWait * 9) / 10
 	c.session.maxMessageSize = target.Session.MaxMessageSize
+	c.session.maxEventsInMessage = target.Session.MaxEventsInMessage
 
 	c.db.url = target.Database.Url
 
