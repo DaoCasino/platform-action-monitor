@@ -12,7 +12,9 @@ func fetchEvent(ctx context.Context, conn DatabaseConnect, offset uint64) (*Even
 	switch err {
 	case nil:
 		// ok
-		if event, err := abiDecoder.Decode(rows.actData); err == nil {
+		var event *Event
+		event, err = abiDecoder.Decode(rows.actData)
+		if err == nil {
 			event.Offset = rows.offset
 			return event, nil
 		}
