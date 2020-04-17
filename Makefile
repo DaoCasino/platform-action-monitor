@@ -23,6 +23,8 @@ package: build  ## package docker image
 publish: ## package docker image
 	@$(foreach APP, $(APPS), $(MAKE) -C $(APPS_DIR)/$(APP) publish ;)
 
+promote: ## package docker image
+	@$(foreach APP, $(APPS), $(MAKE) -C $(APPS_DIR)/$(APP) promote ;)
 
 lint:   bootstrap ## run golangci-linter
 	@$(foreach APP, $(APPS), $(MAKE) -C $(APPS_DIR)/$(APP) lint ;)
