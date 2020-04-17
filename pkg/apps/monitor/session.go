@@ -360,6 +360,11 @@ func (s *Session) sendQueueMessages(parentContext context.Context) {
 		}
 
 		sendEvents := events[i:end]
+
+		if len(sendEvents) == 0 {
+			break
+		}
+
 		eventMessage, err := newEventMessage(sendEvents)
 		if err != nil {
 			sessionLog.Error("error create eventMessage", zap.Error(err))
