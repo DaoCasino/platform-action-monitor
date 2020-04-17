@@ -33,9 +33,9 @@ func (m *EventDataSlice) UnmarshalJSON(data []byte) error {
 type RawEvent struct {
 	Offset    uint64         `json:"offset"`
 	Sender    string         `json:"sender"`
-	CasinoID  string         `json:"casino_id"`
-	GameID    string         `json:"game_id"`
-	RequestID string         `json:"req_id"`
+	CasinoID  uint64         `json:"casino_id"`
+	GameID    uint64         `json:"game_id"`
+	RequestID uint64         `json:"req_id"`
 	EventType int            `json:"event_type"`
 	Data      EventDataSlice `json:"data"`
 }
@@ -51,24 +51,30 @@ type Event struct {
 }
 
 func (src *RawEvent) ToEvent(data json.RawMessage) (*Event, error) {
-	var err error
+	// var err error
 
 	dst := new(Event)
 	dst.Offset = src.Offset
 	dst.Sender = src.Sender
 
-	dst.CasinoID, err = strconv.ParseUint(src.CasinoID, 10, 64)
-	if err != nil {
-		return nil, err
-	}
-	dst.GameID, err = strconv.ParseUint(src.GameID, 10, 64)
-	if err != nil {
-		return nil, err
-	}
-	dst.RequestID, err = strconv.ParseUint(src.RequestID, 10, 64)
-	if err != nil {
-		return nil, err
-	}
+	// TODO: if int large raw event type string!
+	dst.CasinoID = src.CasinoID
+	dst.GameID = src.GameID
+	dst.RequestID = src.RequestID
+
+	//dst.CasinoID, err = strconv.ParseUint(src.CasinoID, 10, 64)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//dst.GameID, err = strconv.ParseUint(src.GameID, 10, 64)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//dst.RequestID, err = strconv.ParseUint(src.RequestID, 10, 64)
+	//if err != nil {
+	//	return nil, err
+	//}
+
 	dst.EventType = src.EventType
 	dst.Data = data
 
