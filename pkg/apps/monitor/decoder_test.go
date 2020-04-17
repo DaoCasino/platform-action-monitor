@@ -66,18 +66,18 @@ func TestAbiDecoder(t *testing.T) {
 	require.NoError(t, err)
 
 	data := createStructData(t, 1, 2, "test_string")
-	actionJson := fmt.Sprintf(`{"sender":"test","casino_id":68,"game_id":825,"req_id":516,"event_type":0,"data":"%s"}`,
+	actionJson := fmt.Sprintf(`{"sender":"test","casino_id":"6842030671102619503","game_id":825,"req_id":516516516,"event_type":0,"data":"%s"}`,
 		hex.EncodeToString(data))
 
 	encodeBytes, err := decoder.main.abi.EncodeAction(eos.ActionName(defaultContractActionName), []byte(actionJson))
 	require.NoError(t, err)
 
 	var event *Event
-	event, _ = decoder.Decode(encodeBytes)
+	event, err = decoder.Decode(encodeBytes)
 	require.NoError(t, err)
 	assert.Equal(t, "test", event.Sender)
-	assert.Equal(t, uint64(68), event.CasinoID)
+	assert.Equal(t, uint64(6842030671102619503), event.CasinoID)
 	assert.Equal(t, uint64(825), event.GameID)
-	assert.Equal(t, uint64(516), event.RequestID)
+	assert.Equal(t, uint64(516516516), event.RequestID)
 	assert.Equal(t, 0, event.EventType)
 }
