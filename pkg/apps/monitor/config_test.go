@@ -19,7 +19,7 @@ server:
 session:
   writeWait: 100s
   pongWait: 600s
-  maxMessageSize: 2048
+  maxEventsInMessage: 75
 upgrader:
   readBufferSize: 1024
   writeBufferSize: 512
@@ -44,7 +44,7 @@ func TestConfigFile(t *testing.T) {
 
 	assert.Equal(t, "100s", configFile.Session.WriteWait)
 	assert.Equal(t, "600s", configFile.Session.PongWait)
-	assert.Equal(t, int64(2048), configFile.Session.MaxMessageSize)
+	assert.Equal(t, 75, configFile.Session.MaxEventsInMessage)
 
 	assert.Equal(t, 1024, configFile.Upgrader.ReadBufferSize)
 	assert.Equal(t, 512, configFile.Upgrader.WriteBufferSize)
@@ -74,7 +74,7 @@ func TestConfigAssign(t *testing.T) {
 
 	assert.Equal(t, 100*time.Second, config.session.writeWait)
 	assert.Equal(t, 600*time.Second, config.session.pongWait)
-	assert.Equal(t, int64(2048), config.session.maxMessageSize)
+	assert.Equal(t, 75, config.session.maxEventsInMessage)
 
 	assert.Equal(t, 1024, config.upgrader.readBufferSize)
 	assert.Equal(t, 512, config.upgrader.writeBufferSize)

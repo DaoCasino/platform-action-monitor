@@ -21,8 +21,10 @@ const (
 	// Send pings to client with this period. Must be less than pongWait.
 	defaultPingPeriod = (defaultPongWait * 9) / 10
 
-	// Maximum message size allowed from client.
-	defaultMaxMessageSize = 1024 * 10
+	// The maximum size in bytes for a message read from the peer. If a
+	// message exceeds the limit, the connection sends a close message to the peer
+	// and returns ErrReadLimit to the application.
+	defaultMessageSizeLimit = 0
 
 	// Maximum events to send per message
 	defaultMaxEventsInMessage = 50
@@ -57,7 +59,7 @@ type SessionConfig struct {
 	pongWait   time.Duration
 	pingPeriod time.Duration
 
-	maxMessageSize     int64
+	messageSizeLimit   int64
 	maxEventsInMessage int
 }
 
@@ -104,9 +106,9 @@ type ConfigFile struct {
 	} `yaml:"server"`
 
 	Session struct {
-		WriteWait      string `yaml:"writeWait"`
-		PongWait       string `yaml:"pongWait"`
-		MaxMessageSize int64  `yaml:"maxMessageSize"`
+		WriteWait          string `yaml:"writeWait"`
+		PongWait           string `yaml:"pongWait"`
+		MaxEventsInMessage int    `yaml:"maxEventsInMessage"`
 	} `yaml:"session"`
 
 	Upgrader struct {
@@ -126,7 +128,7 @@ func newDefaultConfig() *Config {
 	config := &Config{
 		db:            DatabaseConfig{defaultDatabaseUrl, DatabaseFilters{nil, nil}},
 		serverAddress: defaultAddr,
-		session:       SessionConfig{defaultWriteWait, defaultPongWait, defaultPingPeriod, defaultMaxMessageSize, defaultMaxEventsInMessage},
+		session:       SessionConfig{defaultWriteWait, defaultPongWait, defaultPingPeriod, defaultMessageSizeLimit, defaultMaxEventsInMessage},
 		upgrader:      UpgraderConfig{defaultReadBufferSize, defaultWriteBufferSize},
 		abi:           AbiConfig{main: defaultContractABI, events: make(map[int]string)},
 		eventExpires:  defaultEventExpires,
@@ -147,7 +149,7 @@ func (c *Config) assign(target *ConfigFile) (err error) {
 		return
 	}
 	c.session.pingPeriod = (c.session.pongWait * 9) / 10
-	c.session.maxMessageSize = target.Session.MaxMessageSize
+	c.session.maxEventsInMessage = target.Session.MaxEventsInMessage
 
 	c.db.url = target.Database.Url
 

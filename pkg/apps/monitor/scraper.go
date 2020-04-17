@@ -149,18 +149,23 @@ func (s *Scraper) run(parentContext context.Context) {
 func (s *Scraper) handleNotify(parentContext context.Context, conn *pgx.Conn, offset uint64) {
 	scraperLog.Debug("handleNotify", zap.Uint64("offset", offset))
 
-	if event, err := fetchEvent(parentContext, conn, offset); err == nil {
-		s.offset = offset // save current offset
+	s.offset = offset // save current offset
+	event, err := fetchEvent(parentContext, conn, offset)
 
-		select {
-		case <-parentContext.Done():
-			sessionLog.Debug("handleNotify parent context done")
-			return
-		case s.broadcast <- &ScraperBroadcastMessage{fmt.Sprintf("event_%d", event.EventType), event, nil}:
-		default:
-			return
-		}
+	if err != nil {
+		scraperLog.Error("fetchEvent error", zap.Error(err))
+		return
 	}
+
+	select {
+	case <-parentContext.Done():
+		sessionLog.Debug("handleNotify parent context done")
+		return
+	case s.broadcast <- &ScraperBroadcastMessage{fmt.Sprintf("event_%d", event.EventType), event, nil}:
+	default:
+		return
+	}
+
 }
 
 func (s *Scraper) listen(parentContext context.Context) {
