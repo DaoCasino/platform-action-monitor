@@ -93,7 +93,10 @@ func (src *RawEvent) ToEvent(data json.RawMessage) (*Event, error) {
 	}
 
 	dst.EventType = src.EventType
-	dst.Data = data
+
+	if len(data) > 0 {
+		dst.Data = data
+	}
 
 	return dst, nil
 }

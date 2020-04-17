@@ -16,5 +16,5 @@ abi:
   main: configs/abi/contract.abi
   events:
     0: configs/abi/event.abi
-    1: configs/abi/event.abi
+    1: configs/abi/empty_event.abi
 eventExpires: 3 hour
