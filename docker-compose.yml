@@ -2,7 +2,8 @@ version: '3'
 services:
   monitor:
     container_name: action-monitor
-    network_mode: host
+    networks:
+      - action-monitor-network
     build:
       context: .
       dockerfile: Dockerfile
@@ -11,3 +12,5 @@ services:
     volumes:
       - ./configs:/root/configs
     command: -config configs/config.docker.yml
+networks:
+  action-monitor-network:
