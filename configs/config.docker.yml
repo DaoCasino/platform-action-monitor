@@ -1,0 +1,19 @@
+database:
+  url: postgres://action_monitor:test@localhost:5431/daobet_history
+  filter:
+    name: send
+    account: tevents
+server:
+  addr: :8888
+session:
+  writeWait: 10s
+  pongWait: 60s
+  maxEventsInMessage: 50
+upgrader:
+  readBufferSize: 1024
+  writeBufferSize: 1024
+abi:
+  main: configs/abi/contract.abi
+  events:
+    0: configs/abi/event_0.abi
+eventExpires: 2 day
