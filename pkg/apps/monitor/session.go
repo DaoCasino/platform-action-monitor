@@ -68,8 +68,6 @@ type Session struct {
 	queue         chan *Event
 	queueMessages *Queue
 
-	test chan struct{}
-
 	sync.Mutex
 	offset uint64
 }
@@ -85,8 +83,6 @@ func newSession(scraper *Scraper, conn *websocket.Conn) *Session {
 		send:          make(chan *dataToSocket, 512),
 		queue:         make(chan *Event),
 		queueMessages: newQueue(),
-
-		test: make(chan struct{}),
 	}
 }
 
