@@ -48,8 +48,24 @@ func (p *methodSubscribeParams) execute(_ context.Context, session *Session) (me
 	return response.result, response.err
 }
 
+// execute from readPump
 func (p *methodSubscribeParams) after(ctx context.Context, session *Session) {
-	session.sendMessages(ctx, p.Topic, p.Offset)
+	err := session.sendEventsFromDatabase(ctx, p.Topic, p.Offset) // this block operation
+	if err != nil {
+		sessionLog.Error("sendEvents error", zap.Error(err), zap.String("session.ID", session.ID))
+		return
+	}
+
+	sessionLog.Debug("sendEvents done", zap.Uint64("session.offset", session.offset), zap.String("session.ID", session.ID))
+
+	err = session.sendQueueMessages(ctx)
+	if err != nil {
+		sessionLog.Error("sendQueueMessages error", zap.Error(err), zap.String("session.ID", session.ID))
+		return
+	}
+
+	sessionLog.Debug("sendQueueMessages done, open queueMessages", zap.Int("queue len", len(session.queueMessages.events)))
+	session.queueMessages.open()
 }
 
 type methodUnsubscribeParams struct {

@@ -128,13 +128,13 @@ func filterEventsByEventType(events []*Event, eventType int) []*Event {
 	return result
 }
 
-func filterEventsFromOffset(events []*Event, offset uint64) ([]*Event, error) {
+func filterEventsFromOffset(events []*Event, offset uint64) []*Event {
 	for index, event := range events {
 		event := event
-		if event.Offset >= offset {
-			return events[index:], nil
+		if event.Offset > offset {
+			return events[index:]
 		}
 	}
 
-	return nil, nil
+	return events[:0]
 }

@@ -54,10 +54,11 @@ func newScraper() *Scraper {
 }
 
 func (s *Scraper) run(parentContext context.Context) {
+	log := scraperLog.Named("scraper")
 	defer func() {
-		scraperLog.Info("scraper stopped")
+		log.Info("scraper stopped")
 	}()
-	scraperLog.Info("scraper started")
+	log.Info("scraper started")
 
 	if pool != nil {
 		go scraper.listen(parentContext)
@@ -66,10 +67,11 @@ func (s *Scraper) run(parentContext context.Context) {
 	for {
 		select {
 		case <-parentContext.Done():
-			scraperLog.Debug("scraper parent context done")
+			log.Debug("parent context done")
 			return
 
 		case session := <-s.unsubscribeSession:
+			log.Debug("unsubscribeSession", zap.String("session.ID", session.ID))
 			for name, topicSessions := range s.topics {
 				delete(topicSessions, session)
 
@@ -79,7 +81,7 @@ func (s *Scraper) run(parentContext context.Context) {
 			}
 
 		case message := <-s.subscribe:
-			scraperLog.Debug("subscribe",
+			log.Debug("subscribe",
 				zap.String("name", message.name),
 				zap.String("session.id", message.session.ID),
 			)
@@ -100,7 +102,7 @@ func (s *Scraper) run(parentContext context.Context) {
 			}
 
 		case message := <-s.unsubscribe:
-			scraperLog.Debug("unsubscribe",
+			log.Debug("unsubscribe",
 				zap.String("name", message.name),
 				zap.String("session.id", message.session.ID),
 			)
@@ -123,7 +125,7 @@ func (s *Scraper) run(parentContext context.Context) {
 				close(message.response)
 			}
 		case message := <-s.broadcast:
-			scraperLog.Debug("send broadcast",
+			log.Debug("send broadcast",
 				zap.String("name", message.name),
 			)
 			response := new(ScraperResponseMessage)
@@ -146,57 +148,53 @@ func (s *Scraper) run(parentContext context.Context) {
 	}
 }
 
-func (s *Scraper) handleNotify(parentContext context.Context, conn *pgx.Conn, offset uint64) {
+func (s *Scraper) handleNotify(parentContext context.Context, conn *pgx.Conn, offset uint64) error {
 	scraperLog.Debug("handleNotify", zap.Uint64("offset", offset))
 
 	s.offset = offset // save current offset
 	event, err := fetchEvent(parentContext, conn, offset)
 
 	if err != nil {
-		scraperLog.Error("fetchEvent error", zap.Error(err))
-		return
+		return fmt.Errorf("fetchEvent error: %s", err)
 	}
 
 	select {
 	case <-parentContext.Done():
-		sessionLog.Debug("handleNotify parent context done")
-		return
 	case s.broadcast <- &ScraperBroadcastMessage{fmt.Sprintf("event_%d", event.EventType), event, nil}:
-	default:
-		return
 	}
-
+	return nil
 }
 
 func (s *Scraper) listen(parentContext context.Context) {
+	log := scraperLog.Named("scraper listen")
 	conn, err := pool.Acquire(parentContext)
 	if err != nil {
-		scraperLog.Error("pool acquire connection error", zap.Error(err))
+		log.Error("pool acquire connection error", zap.Error(err))
 	}
 
-	scraperLog.Debug("listen notify start")
+	log.Info("listen notify start")
 
 	defer func() {
 		conn.Release()
-		scraperLog.Debug("listen notify stop")
+		log.Info("listen notify stop")
 	}()
 
 	_, err = conn.Exec(parentContext, "listen new_action_trace")
 	if err != nil {
-		scraperLog.Error("error listening new_action_trace", zap.Error(err))
+		log.Error("error listening new_action_trace", zap.Error(err))
 		return
 	}
 
 	for {
 		select {
 		case <-parentContext.Done():
-			scraperLog.Debug("listen parent context done")
+			log.Debug("listen parent context done")
 			return
 		default:
 			contextWithTimeout, cancelWaitForNotification := context.WithTimeout(parentContext, time.Second)
 			notification, err := conn.Conn().WaitForNotification(contextWithTimeout)
 			if err == nil {
-				scraperLog.Debug("notify",
+				log.Debug("notify",
 					zap.Uint32("PID", notification.PID),
 					zap.String("channel", notification.Channel),
 					zap.String("payload", notification.Payload),
@@ -204,12 +202,17 @@ func (s *Scraper) listen(parentContext context.Context) {
 
 				offset, err := strconv.ParseInt(notification.Payload, 10, 64)
 				if err != nil {
-					scraperLog.Error("parseInt error", zap.Error(err))
+					log.Error("parseInt error", zap.Error(err))
 					cancelWaitForNotification()
 					return
 				}
 
-				s.handleNotify(parentContext, conn.Conn(), uint64(offset)) // TODO: check done?
+				err = s.handleNotify(parentContext, conn.Conn(), uint64(offset))
+				if err != nil {
+					log.Error("handleNotify error", zap.Error(err))
+					cancelWaitForNotification()
+					return
+				}
 			}
 			cancelWaitForNotification()
 		}

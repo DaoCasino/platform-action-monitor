@@ -102,8 +102,8 @@ func TestSessionProcess(t *testing.T) {
 			// <-session.send
 
 			result := <-session.send
-			if string(result) != tc.expected {
-				t.Fatalf("expected %s, but got %s", tc.expected, string(result))
+			if string(result.data) != tc.expected {
+				t.Fatalf("expected %s, but got %s", tc.expected, string(result.data))
 			}
 		})
 	}
@@ -171,7 +171,7 @@ func TestSessionSendQueueMessages(t *testing.T) {
 			responseMessage := new(ResponseMessage)
 			eventMessage := new(EventMessage)
 
-			err := json.Unmarshal(data, responseMessage)
+			err := json.Unmarshal(data.data, responseMessage)
 			require.NoError(t, err)
 
 			err = json.Unmarshal(responseMessage.Result, &eventMessage)
@@ -209,7 +209,7 @@ func TestSessionSendMessages(t *testing.T) {
 			responseMessage := new(ResponseMessage)
 			eventMessage := new(EventMessage)
 
-			err := json.Unmarshal(data, responseMessage)
+			err := json.Unmarshal(data.data, responseMessage)
 			require.NoError(t, err)
 
 			err = json.Unmarshal(responseMessage.Result, &eventMessage)
@@ -222,7 +222,9 @@ func TestSessionSendMessages(t *testing.T) {
 
 	eventMessage, err := newEventMessage(events)
 	require.NoError(t, err)
-	session.send <- eventMessage
+
+	data := newSendData(eventMessage)
+	session.send <- data
 
 	wg.Wait()
 }
