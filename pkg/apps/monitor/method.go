@@ -56,7 +56,7 @@ func (p *methodSubscribeParams) after(ctx context.Context, session *Session) {
 		return
 	}
 
-	sessionLog.Debug("sendEvents done", zap.Uint64("session.offset", session.offset), zap.String("session.ID", session.ID))
+	sessionLog.Debug("sendEvents done", zap.Uint64("session.offset", session.Offset()), zap.String("session.ID", session.ID))
 
 	err = session.sendQueueMessages(ctx)
 	if err != nil {
@@ -64,7 +64,11 @@ func (p *methodSubscribeParams) after(ctx context.Context, session *Session) {
 		return
 	}
 
-	sessionLog.Debug("sendQueueMessages done, open queueMessages", zap.Int("queue len", len(session.queueMessages.events)))
+	sessionLog.Debug("sendQueueMessages done, open queueMessages",
+		zap.Int("queue len", len(session.queueMessages.events)),
+		zap.Uint64("session.offset", session.Offset()),
+		zap.String("session.ID", session.ID),
+	)
 	session.queueMessages.open()
 }
 

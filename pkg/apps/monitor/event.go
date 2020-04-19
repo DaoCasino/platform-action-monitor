@@ -55,11 +55,11 @@ func conv(name string, v interface{}) (uint64, error) {
 	var result uint64
 	var err error
 
-	switch v.(type) {
+	switch v := v.(type) {
 	case float64:
-		result = uint64(v.(float64))
+		result = uint64(v)
 	case string:
-		result, err = strconv.ParseUint(v.(string), 10, 64)
+		result, err = strconv.ParseUint(v, 10, 64)
 		if err != nil {
 			return result, err
 		}
