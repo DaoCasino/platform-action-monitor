@@ -4,9 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/DaoCasino/platform-action-monitor/pkg/apps/monitor/metrics"
 	"github.com/gorilla/websocket"
-	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/lucsky/cuid"
 	"github.com/tevino/abool"
 	"go.uber.org/zap"
@@ -39,20 +37,6 @@ func (q *Queue) add(event *Event) {
 	q.Lock()
 	defer q.Unlock()
 	q.events = append(q.events, event)
-}
-
-type dataToSocket struct {
-	data []byte
-	done chan struct{}
-	err  error
-}
-
-func newSendData(data []byte) *dataToSocket {
-	return &dataToSocket{
-		data: data,
-		done: make(chan struct{}),
-		err:  nil,
-	}
 }
 
 type Session struct {
@@ -283,7 +267,7 @@ func (s *Session) process(parentContext context.Context, message []byte) error {
 		<-data.done // TODO: <- block
 
 		if data.err != nil {
-			sessionLog.Error("send error", zap.Error(err))
+			sessionLog.Error("send error", zap.Error(data.err))
 			return
 		}
 
@@ -320,161 +304,4 @@ func (s *Session) process(parentContext context.Context, message []byte) error {
 	)
 
 	return nil
-}
-
-// call from readPump it is blocked function
-func (s *Session) sendEventsFromDatabase(parentContext context.Context, topic string, offset uint64) error {
-	sessionLog.Debug("after subscribe send events", zap.String("session.id", s.ID), zap.Uint64("offset", offset))
-
-	eventType, err := getEventTypeFromTopic(topic)
-	if err != nil {
-		return fmt.Errorf("get event type error: %s", err)
-	}
-
-	var conn *pgxpool.Conn
-	conn, err = pool.Acquire(parentContext)
-	if err != nil {
-		return fmt.Errorf("pool acquire connection error: %s", err)
-	}
-
-	defer func() {
-		conn.Release()
-	}()
-
-	events, err := fetchAllEvents(parentContext, conn.Conn(), offset, 0) // TODO: may be need count
-	if err != nil {
-		return fmt.Errorf("fetch all events error: %s", err)
-	}
-
-	if len(events) == 0 {
-		return nil
-	}
-	filteredEvents := filterEventsByEventType(events, eventType)
-	if len(filteredEvents) == 0 {
-		return nil
-	}
-
-	err = s.sendChunked(parentContext, filteredEvents) // blocked !
-	if err != nil {
-		return fmt.Errorf("sendChunked error: %s", err)
-	}
-
-	return nil
-}
-
-func sendPingMessage(conn *websocket.Conn) error {
-	if err := conn.SetWriteDeadline(time.Now().Add(config.session.writeWait)); err != nil {
-		return fmt.Errorf("SetWriteDeadline error: %s", err)
-	}
-
-	if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
-		return fmt.Errorf("writePingMessage error: %s", err)
-	}
-	return nil
-}
-
-func sendCloseMessage(conn *websocket.Conn) error {
-	if err := conn.SetWriteDeadline(time.Now().Add(config.session.writeWait)); err != nil {
-		return fmt.Errorf("SetWriteDeadline error: %s", err)
-	}
-
-	if err := conn.WriteMessage(websocket.CloseMessage, []byte{}); err != nil {
-		return fmt.Errorf("writeCloseMessage error: %s", err)
-	}
-	return nil
-}
-
-func sendMessage(conn *websocket.Conn, data *dataToSocket) error {
-	data.err = nil
-
-	defer func() {
-		data.done <- struct{}{}
-		close(data.done)
-	}()
-
-	if err := conn.SetWriteDeadline(time.Now().Add(config.session.writeWait)); err != nil {
-		data.err = err
-		return fmt.Errorf("SetWriteDeadline error: %s", err)
-	}
-
-	w, err := conn.NextWriter(websocket.TextMessage)
-	if err != nil {
-		data.err = err
-		return fmt.Errorf("nextWriter error: %s", err)
-	}
-
-	if _, err := w.Write(data.data); err != nil {
-		data.err = err
-		return fmt.Errorf("write error: %s", err)
-	}
-
-	if err := w.Close(); err != nil {
-		data.err = err
-		return fmt.Errorf("writer close error: %s", err)
-	}
-
-	return nil
-}
-
-// blocked function, do not call in writePump
-func (s *Session) sendChunked(parentContext context.Context, events []*Event) error {
-	chunkSize := config.session.maxEventsInMessage
-	var offset uint64
-
-loop:
-	for i := 0; i < len(events); i += chunkSize {
-		end := i + chunkSize
-
-		if end > len(events) {
-			end = len(events)
-		}
-
-		sendEvents := events[i:end]
-
-		if len(sendEvents) == 0 {
-			break
-		}
-
-		eventMessage, err := newEventMessage(sendEvents)
-		if err != nil {
-			return err
-		}
-
-		data := newSendData(eventMessage)
-
-		select {
-		case <-parentContext.Done():
-			sessionLog.Debug("sendChunked parent context done", zap.String("session.id", s.ID))
-			break loop
-		case s.send <- data:
-			<-data.done // TODO: <- block! do not call in writePump
-
-			if data.err != nil {
-				return data.err
-			}
-
-			offset = sendEvents[len(sendEvents)-1].Offset
-			s.setOffset(offset)
-			metrics.EventsTotal.Add(float64(len(sendEvents)))
-		}
-	}
-
-	return nil
-}
-
-// this is blocked function!
-func (s *Session) sendQueueMessages(parentContext context.Context) error {
-	s.queueMessages.Lock()
-	defer func() {
-		s.queueMessages.events = filterEventsFromOffset(s.queueMessages.events, s.Offset())
-		s.queueMessages.Unlock()
-	}()
-
-	events := filterEventsFromOffset(s.queueMessages.events, s.Offset())
-
-	if len(events) == 0 {
-		return nil
-	}
-
-	return s.sendChunked(parentContext, events)
 }
