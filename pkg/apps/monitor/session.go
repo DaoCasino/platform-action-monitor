@@ -416,7 +416,7 @@ func sendMessage(conn *websocket.Conn, data *dataToSocket) error {
 	return nil
 }
 
-// return last send offset, blocked function, not run in writePump
+// blocked function, do not call in writePump
 func (s *Session) sendChunked(parentContext context.Context, events []*Event) error {
 	chunkSize := config.session.maxEventsInMessage
 	var offset uint64
@@ -447,7 +447,7 @@ loop:
 			sessionLog.Debug("sendChunked parent context done", zap.String("session.id", s.ID))
 			break loop
 		case s.send <- data:
-			<-data.done // TODO: <- block! no run in writePump
+			<-data.done // TODO: <- block! do not call in writePump
 
 			if data.err != nil {
 				return data.err
