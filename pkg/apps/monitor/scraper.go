@@ -155,6 +155,10 @@ func (s *Scraper) handleNotify(parentContext context.Context, conn *pgx.Conn, of
 	event, err := fetchEvent(parentContext, conn, offset)
 
 	if err != nil {
+		if err == pgx.ErrNoRows {
+			sessionLog.Debug("fetchEvent no rows", zap.Uint64("offset", offset))
+			return nil
+		}
 		return fmt.Errorf("fetchEvent error: %s", err)
 	}
 
