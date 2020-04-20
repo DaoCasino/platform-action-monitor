@@ -1,3 +1,4 @@
 .git
-configs/
 environment/
+configs/config.dev.yml
+configs/config.docker.yml
