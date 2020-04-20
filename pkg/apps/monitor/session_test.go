@@ -97,13 +97,19 @@ func TestSessionProcess(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			_ = session.process(ctx, []byte(tc.request))
-
-			// <-session.send
+			go func(t *testing.T) {
+				if err := session.process(ctx, []byte(tc.request)); err != nil {
+					t.Log(err)
+				}
+			}(t)
 
 			result := <-session.send
-			if string(result) != tc.expected {
-				t.Fatalf("expected %s, but got %s", tc.expected, string(result))
+
+			result.done <- struct{}{}
+			close(result.done)
+
+			if string(result.data) != tc.expected {
+				t.Fatalf("expected %s, but got %s", tc.expected, string(result.data))
 			}
 		})
 	}
@@ -149,6 +155,7 @@ func newRandomEvent() *Event {
 }
 
 func TestSessionSendQueueMessages(t *testing.T) {
+	config = newConfig()
 	const numEvents = 10
 
 	session := newSession(nil, nil)
@@ -168,21 +175,26 @@ func TestSessionSendQueueMessages(t *testing.T) {
 		defer wg.Done()
 
 		for data := range session.send {
+			data.done <- struct{}{}
+			close(data.done)
+
 			responseMessage := new(ResponseMessage)
 			eventMessage := new(EventMessage)
 
-			err := json.Unmarshal(data, responseMessage)
+			err := json.Unmarshal(data.data, responseMessage)
 			require.NoError(t, err)
 
 			err = json.Unmarshal(responseMessage.Result, &eventMessage)
 			require.NoError(t, err)
 
-			assert.Equal(t, numEvents, len(eventMessage.Events))
+			assert.Equal(t, numEvents-1, len(eventMessage.Events))
+
 			return
 		}
 	}()
 
-	session.sendQueueMessages(context.Background())
+	err := session.sendQueueMessages(context.Background())
+	require.NoError(t, err)
 	wg.Wait()
 	assert.Equal(t, 0, len(session.queueMessages.events))
 }
@@ -204,12 +216,13 @@ func TestSessionSendMessages(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
+
 		defer wg.Done()
 		for data := range session.send {
 			responseMessage := new(ResponseMessage)
 			eventMessage := new(EventMessage)
 
-			err := json.Unmarshal(data, responseMessage)
+			err := json.Unmarshal(data.data, responseMessage)
 			require.NoError(t, err)
 
 			err = json.Unmarshal(responseMessage.Result, &eventMessage)
@@ -222,7 +235,9 @@ func TestSessionSendMessages(t *testing.T) {
 
 	eventMessage, err := newEventMessage(events)
 	require.NoError(t, err)
-	session.send <- eventMessage
+
+	data := newSendData(eventMessage)
+	session.send <- data
 
 	wg.Wait()
 }

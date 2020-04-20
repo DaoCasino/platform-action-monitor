@@ -55,11 +55,11 @@ func conv(name string, v interface{}) (uint64, error) {
 	var result uint64
 	var err error
 
-	switch v.(type) {
+	switch v := v.(type) {
 	case float64:
-		result = uint64(v.(float64))
+		result = uint64(v)
 	case string:
-		result, err = strconv.ParseUint(v.(string), 10, 64)
+		result, err = strconv.ParseUint(v, 10, 64)
 		if err != nil {
 			return result, err
 		}
@@ -93,7 +93,10 @@ func (src *RawEvent) ToEvent(data json.RawMessage) (*Event, error) {
 	}
 
 	dst.EventType = src.EventType
-	dst.Data = data
+
+	if len(data) > 0 {
+		dst.Data = data
+	}
 
 	return dst, nil
 }
@@ -125,13 +128,13 @@ func filterEventsByEventType(events []*Event, eventType int) []*Event {
 	return result
 }
 
-func filterEventsFromOffset(events []*Event, offset uint64) ([]*Event, error) {
+func filterEventsFromOffset(events []*Event, offset uint64) []*Event {
 	for index, event := range events {
 		event := event
-		if event.Offset >= offset {
-			return events[index:], nil
+		if event.Offset > offset {
+			return events[index:]
 		}
 	}
 
-	return nil, nil
+	return events[:0]
 }

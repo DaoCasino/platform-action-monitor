@@ -4,22 +4,25 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/DaoCasino/platform-action-monitor/pkg/apps/monitor/metrics"
 	"github.com/gorilla/websocket"
-	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/lucsky/cuid"
 	"github.com/tevino/abool"
 	"go.uber.org/zap"
+	"sync"
 	"time"
 )
 
 type Queue struct {
-	flag   *abool.AtomicBool
+	flag *abool.AtomicBool
+	sync.Mutex
 	events []*Event
 }
 
 func newQueue() *Queue {
-	return &Queue{abool.New(), make([]*Event, 0)}
+	return &Queue{
+		flag:   abool.New(),
+		events: make([]*Event, 0),
+	}
 }
 
 func (q *Queue) open() {
@@ -31,16 +34,13 @@ func (q *Queue) isOpen() bool {
 }
 
 func (q *Queue) add(event *Event) {
+	q.Lock()
+	defer q.Unlock()
 	q.events = append(q.events, event)
 }
 
-func (q *Queue) clean() {
-	q.events = q.events[:0] // TODO: cap() save
-}
-
 type Session struct {
-	ID     string
-	offset uint64
+	ID string
 
 	scraper *Scraper
 
@@ -48,10 +48,12 @@ type Session struct {
 	conn *websocket.Conn
 
 	// Buffered channel of outbound messages.
-	send          chan []byte
+	send          chan *dataToSocket
 	queue         chan *Event
-	sendQueue     chan struct{}
 	queueMessages *Queue
+
+	sync.Mutex
+	offset uint64
 }
 
 func newSession(scraper *Scraper, conn *websocket.Conn) *Session {
@@ -62,27 +64,36 @@ func newSession(scraper *Scraper, conn *websocket.Conn) *Session {
 		ID:            ID,
 		scraper:       scraper,
 		conn:          conn,
-		send:          make(chan []byte, 512),
-		queue:         make(chan *Event, 32),
-		sendQueue:     make(chan struct{}),
+		send:          make(chan *dataToSocket, 512),
+		queue:         make(chan *Event),
 		queueMessages: newQueue(),
 	}
 }
 
 func (s *Session) setOffset(offset uint64) {
+	s.Lock()
+	defer s.Unlock()
 	s.offset = offset
 }
 
+func (s *Session) Offset() uint64 {
+	s.Lock()
+	defer s.Unlock()
+	return s.offset
+}
+
 func (s *Session) readPump(parentContext context.Context) {
+	log := sessionLog.Named("readPump")
+
 	readPumpContext, cancel := context.WithCancel(parentContext)
 	defer func() {
 		cancel()
 		sessionManager.unregister <- s
 		_ = s.conn.Close()
-		sessionLog.Debug("readPump close", zap.String("session.id", s.ID))
+		log.Debug("pump close", zap.String("session.id", s.ID))
 	}()
 
-	sessionLog.Debug("readPump start", zap.String("session.id", s.ID))
+	log.Debug("pump start", zap.String("session.id", s.ID))
 
 	s.conn.SetReadLimit(config.session.messageSizeLimit)
 	if err := s.conn.SetReadDeadline(time.Now().Add(config.session.pongWait)); err != nil {
@@ -112,95 +123,94 @@ func (s *Session) readPump(parentContext context.Context) {
 	}
 }
 
-func (s *Session) queuePump(parentContext context.Context) {
-	queuePumpContext, cancel := context.WithCancel(parentContext)
+func (s *Session) queuePump(parentContext context.Context, done chan struct{}) {
+	log := sessionLog.Named("queuePump")
+
 	defer func() {
-		cancel()
-		s.queueMessages.clean()
+		done <- struct{}{}
+		close(done)
 
-		close(s.send)
-
-		sessionLog.Debug("queuePump close", zap.String("session.id", s.ID))
+		log.Debug("pump close", zap.String("session.id", s.ID))
 	}()
 
-	sessionLog.Debug("queuePump start", zap.String("session.id", s.ID))
+	log.Debug("pump start", zap.String("session.id", s.ID))
 
 	for {
 		select {
 		case <-parentContext.Done():
-			sessionLog.Debug("queuePump parent context close")
+			log.Debug("parent context close", zap.String("session.id", s.ID))
 			return
-		case <-s.sendQueue:
-			s.sendQueueMessages(queuePumpContext)
 		case event, ok := <-s.queue:
 			if !ok {
 				return
 			}
-			s.queueMessages.add(event)
+
 			if s.queueMessages.isOpen() {
-				s.sendQueueMessages(queuePumpContext)
+				log.Debug("queue send event", zap.Uint64("event.offset", event.Offset), zap.String("session.id", s.ID))
+
+				events := make([]*Event, 1)
+				events[0] = event
+
+				// this blocked
+				if err := s.sendChunked(parentContext, events); err != nil {
+					log.Debug("sendChunked error", zap.Error(err), zap.String("session.id", s.ID))
+					return
+				}
+			} else {
+				log.Debug("queue add event", zap.Uint64("event.offset", event.Offset), zap.String("session.id", s.ID))
+				s.queueMessages.add(event)
 			}
 		}
 	}
 }
 
 func (s *Session) writePump(parentContext context.Context) {
+	log := sessionLog.Named("writePump")
 	ticker := time.NewTicker(config.session.pingPeriod)
-	writePumpContext, cancel := context.WithCancel(parentContext)
+
+	ctx, cancel := context.WithCancel(parentContext)
+	queuePumpClosed := make(chan struct{})
 
 	defer func() {
 		cancel()
 		ticker.Stop()
 		_ = s.conn.Close()
-		sessionLog.Debug("writePump close", zap.String("session.id", s.ID))
+		log.Debug("pump close", zap.String("session.id", s.ID))
 	}()
 
-	sessionLog.Debug("writePump start", zap.String("session.id", s.ID))
-	go s.queuePump(writePumpContext)
+	log.Debug("pump start", zap.String("session.id", s.ID))
+	go s.queuePump(ctx, queuePumpClosed)
 
 	for {
 		select {
 		case <-parentContext.Done():
-			sessionLog.Debug("writePump parent context close")
+			log.Debug("parent context close", zap.String("session.id", s.ID))
 			return
 
-		case message, ok := <-s.send:
-			if err := s.conn.SetWriteDeadline(time.Now().Add(config.session.writeWait)); err != nil {
-				sessionLog.Error("SetWriteDeadline error", zap.String("session.id", s.ID), zap.Error(err))
-				return
+		case <-queuePumpClosed:
+			if err := sendCloseMessage(s.conn); err != nil {
+				log.Error("sendCloseMessage error", zap.Error(err), zap.String("session.id", s.ID))
 			}
+			return
 
+		case data, ok := <-s.send:
 			if !ok {
-				// The session closed the channel.
-				if err := s.conn.WriteMessage(websocket.CloseMessage, []byte{}); err != nil {
-					sessionLog.Error("writeCloseMessage error", zap.String("session.id", s.ID), zap.Error(err))
+				log.Debug("send chan close", zap.String("session.id", s.ID))
+				if err := sendCloseMessage(s.conn); err != nil {
+					log.Error("sendCloseMessage error", zap.Error(err), zap.String("session.id", s.ID))
 				}
 				return
 			}
 
-			w, err := s.conn.NextWriter(websocket.TextMessage)
-			if err != nil {
-				sessionLog.Error("nextWriter error", zap.String("session.id", s.ID), zap.Error(err))
+			if err := sendMessage(s.conn, data); err != nil {
+				log.Error("sendMessage error", zap.Error(err), zap.String("session.id", s.ID))
 				return
 			}
-
-			if _, err := w.Write(message); err != nil {
-				sessionLog.Error("write error", zap.String("session.id", s.ID), zap.Error(err))
-				return
-			}
-
-			if err := w.Close(); err != nil {
-				sessionLog.Error("writer close error", zap.String("session.id", s.ID), zap.Error(err))
-				return
-			}
-
 		case <-ticker.C:
-			if err := s.conn.SetWriteDeadline(time.Now().Add(config.session.writeWait)); err != nil {
-				sessionLog.Error("SetWriteDeadline error", zap.String("session.id", s.ID), zap.Error(err))
-				return
-			}
-			if err := s.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
-				sessionLog.Error("ping message error", zap.String("session.id", s.ID), zap.Error(err))
+			log.Debug("ping", zap.String("session.id", s.ID))
+
+			if err := sendPingMessage(s.conn); err != nil {
+				log.Error("sendPingMessage error", zap.Error(err), zap.String("session.id", s.ID))
 				return
 			}
 		}
@@ -240,6 +250,7 @@ func parseRequest(message []byte, response *ResponseMessage) (methodExecutor, er
 	return method, nil
 }
 
+// call from readPump
 func (s *Session) process(parentContext context.Context, message []byte) error {
 	response := newResponseMessage()
 	method, err := parseRequest(message, response)
@@ -250,7 +261,15 @@ func (s *Session) process(parentContext context.Context, message []byte) error {
 			sessionLog.Error("response marshal", zap.Error(err))
 			return
 		}
-		s.send <- raw
+
+		data := newSendData(raw)
+		s.send <- data
+		<-data.done // TODO: <- block
+
+		if data.err != nil {
+			sessionLog.Error("send error", zap.Error(data.err))
+			return
+		}
 
 		if method != nil {
 			method.after(parentContext, s)
@@ -285,99 +304,4 @@ func (s *Session) process(parentContext context.Context, message []byte) error {
 	)
 
 	return nil
-}
-
-func (s *Session) sendMessages(parentContext context.Context, topic string, offset uint64) {
-	sessionLog.Debug("after subscribe send events", zap.String("session.id", s.ID), zap.Uint64("offset", offset))
-
-	eventType, err := getEventTypeFromTopic(topic)
-	if err != nil {
-		sessionLog.Error("error get event type", zap.String("topic", topic), zap.Error(err))
-		return
-	}
-
-	var conn *pgxpool.Conn
-	conn, err = pool.Acquire(parentContext)
-	if err != nil {
-		sessionLog.Error("pool acquire connection error", zap.Error(err))
-		return
-	}
-
-	defer func() {
-		conn.Release()
-
-		select {
-		case <-parentContext.Done():
-			sessionLog.Debug("sendMessage parent context done")
-		case s.sendQueue <- struct{}{}:
-			s.queueMessages.open()
-		case <-time.After(time.Second):
-			sessionLog.Debug("sendQueue timeout")
-		}
-	}()
-
-	events, err := fetchAllEvents(parentContext, conn.Conn(), offset, 0)
-	if err != nil {
-		sessionLog.Error("fetch all events error", zap.Error(err))
-		return
-	}
-
-	if len(events) == 0 {
-		return
-	}
-
-	filteredEvents := filterEventsByEventType(events, eventType)
-	for _, event := range filteredEvents {
-		event := event
-		s.queue <- event
-	}
-}
-
-func (s *Session) sendQueueMessages(parentContext context.Context) {
-	sessionLog.Debug("sendQueueMessages", zap.String("session.id", s.ID))
-
-	events, err := filterEventsFromOffset(s.queueMessages.events, s.offset)
-	if err != nil {
-		sessionLog.Error("filterEventsFromOffset", zap.Error(err))
-		return
-	}
-
-	defer func() {
-		s.queueMessages.clean()
-	}()
-
-	if len(events) == 0 {
-		return
-	}
-
-	chunkSize := config.session.maxEventsInMessage
-
-	for i := 0; i < len(events); i += chunkSize {
-		end := i + chunkSize
-
-		if end > len(events) {
-			end = len(events)
-		}
-
-		sendEvents := events[i:end]
-
-		if len(sendEvents) == 0 {
-			break
-		}
-
-		eventMessage, err := newEventMessage(sendEvents)
-		if err != nil {
-			sessionLog.Error("error create eventMessage", zap.Error(err))
-			return
-		}
-
-		select {
-		case <-parentContext.Done():
-			sessionLog.Debug("sendQueueMessages parent context done", zap.String("session.id", s.ID))
-			return
-		case s.send <- eventMessage:
-			s.setOffset(sendEvents[len(sendEvents)-1].Offset)
-			metrics.EventsTotal.Add(float64(len(sendEvents)))
-		}
-	}
 }

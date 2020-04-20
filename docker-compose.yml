@@ -1,0 +1,16 @@
+version: '3'
+services:
+  monitor:
+    container_name: action-monitor
+    networks:
+      - action-monitor-network
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - 8888:8888
+    volumes:
+      - ./configs:/root/configs
+    command: -config configs/config.docker.yml
+networks:
+  action-monitor-network:

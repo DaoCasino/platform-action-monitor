@@ -1,10 +1,10 @@
 database:
-  url: postgres://test:test@localhost/test
+  url: postgres://test:test@192.168.1.3:5431/test
   filter:
-    name:
-    account:
+    name: send
+    account: tevents
 server:
-  addr: :8888
+  addr: 0.0.0.0:8888
 session:
   writeWait: 10s
   pongWait: 60s
@@ -15,6 +15,5 @@ upgrader:
 abi:
   main: configs/abi/contract.abi
   events:
-    0: configs/abi/event.abi
-    1: configs/abi/empty_event.abi
-eventExpires: 3 hour
+    0: configs/abi/event_0.abi
+eventExpires: 2 day
