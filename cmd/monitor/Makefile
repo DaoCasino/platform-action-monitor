@@ -29,7 +29,7 @@ clean:
 
 
 deploy:
-	@echo "=> deploy $(app)"
+	@echo "=> deploy $(APP)"
 
 
 promote: registry-login ## promote artefact
