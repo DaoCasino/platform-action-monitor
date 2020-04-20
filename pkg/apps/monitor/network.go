@@ -32,10 +32,21 @@ func (s *Session) sendEventsFromDatabase(parentContext context.Context, topic st
 		return fmt.Errorf("fetch all events error: %s", err)
 	}
 
+	sessionLog.Debug("fetchAllEvents",
+		zap.Uint64("offset", offset),
+		zap.Int("events.len", len(events)),
+		zap.String("session.id", s.ID))
+
 	if len(events) == 0 {
 		return nil
 	}
 	filteredEvents := filterEventsByEventType(events, eventType)
+
+	sessionLog.Debug("filterEventsByEventType",
+		zap.Int("eventType", eventType),
+		zap.Int("filteredEvents.len", len(filteredEvents)),
+		zap.String("session.id", s.ID))
+
 	if len(filteredEvents) == 0 {
 		return nil
 	}
@@ -99,6 +110,7 @@ func (s *Session) sendQueueMessages(parentContext context.Context) error {
 	s.queueMessages.Lock()
 	defer func() {
 		s.queueMessages.events = filterEventsFromOffset(s.queueMessages.events, s.Offset())
+		s.queueMessages.open()
 		s.queueMessages.Unlock()
 	}()
 

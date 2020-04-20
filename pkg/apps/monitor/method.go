@@ -69,7 +69,6 @@ func (p *methodSubscribeParams) after(ctx context.Context, session *Session) {
 		zap.Uint64("session.offset", session.Offset()),
 		zap.String("session.ID", session.ID),
 	)
-	session.queueMessages.open()
 }
 
 type methodUnsubscribeParams struct {
