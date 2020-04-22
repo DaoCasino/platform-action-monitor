@@ -11,4 +11,4 @@ loadtest.yml
 pkg/apps/monitor
 coverage.txt
 bin
-configs/config.stage.yml
+configs/config.*.yml

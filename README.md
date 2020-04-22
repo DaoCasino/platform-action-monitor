@@ -34,15 +34,21 @@ The database starts for a long time and the history tools may fall with an error
 nodeos -e -p eosio --config-dir `pwd`environment/ --delete-all-blocks --disable-replay-opts
 ```
 Option `--disable-replay-opts` is needed for `state-history-plugin`
+
+### Database Migrations
+Install tool [dbmate](https://github.com/amacneil/dbmate#installation) and run:
+```
+GO111MODULE=on go get -u github.com/amacneil/dbmate
+dbmate up
+```
+
 ### Launch service
 ```BASH
-export GO111MODULE=on
-go run cmd/monitor/main.go -config configs/config.yml
+GO111MODULE=on go run cmd/monitor/main.go -config configs/config.yml
 ```
 #### Dockerize
 ```BASH
-$ docker build -t app .
-$ docker run --publish 8888:8888 --name action-monitor --rm app
+$ docker-compose build
 ```
 ## Load testing
 Use Artillery https://artillery.io/
