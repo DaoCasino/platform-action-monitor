@@ -1,5 +1,5 @@
 database:
-  url: postgres://test:test@localhost/test
+  url: postgres://test:test@localhost:5433/test
   filter:
     name:
     account:
@@ -16,5 +16,5 @@ abi:
   main: configs/abi/contract.abi
   events:
     0: configs/abi/event.abi
-    1: configs/abi/empty_event.abi
+    1: configs/abi/event.abi
 eventExpires: 3 hour
