@@ -42,6 +42,12 @@ func TestFilterEventsByEventType(t *testing.T) {
 	assert.Equal(t, 2, len(result))
 }
 
+func TestFilterEventsByEventTypes(t *testing.T) {
+	events := []*Event{{EventType: 0}, {EventType: 1}, {EventType: 0}, {EventType: 3}}
+	result := filterEventsByEventTypes(events, []int{0, 1})
+	assert.Equal(t, 3, len(result))
+}
+
 func TestFilterEventsFromOffset(t *testing.T) {
 	events := []*Event{{Offset: 1}, {Offset: 2}, {Offset: 3}}
 	result := filterEventsFromOffset(events, 2)
