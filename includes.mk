@@ -48,7 +48,7 @@ check-bin:
 bootstrap:
 ifndef GO_HAS_LINT
 	# @go get -u github.com/golangci/golangci-lint/cmd/golangci-lint > /dev/null 2>&1
-	@wget -O- -nv https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sudo sh -s -- -b $(go env GOPATH)/bin v1.27.0
+	@wget -O- -nv https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sudo sh -s -- -b $(BIN_DIR) v1.27.0
 endif
 
 
