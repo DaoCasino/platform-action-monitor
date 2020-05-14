@@ -8,7 +8,6 @@ nodeos.log
 **/.DS_Store
 vendor/
 loadtest.yml
-pkg/apps/monitor
 coverage.txt
 bin
 configs/config.*.yml
