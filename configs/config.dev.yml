@@ -17,4 +17,9 @@ abi:
   events:
     0: configs/abi/event.abi
     1: configs/abi/event.abi
+    2: configs/abi/event.abi
+    3: configs/abi/event.abi
+    4: configs/abi/event.abi
+    5: configs/abi/event.abi
+    6: configs/abi/event.abi
 eventExpires: 3 hour

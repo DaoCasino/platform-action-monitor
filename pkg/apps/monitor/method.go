@@ -3,7 +3,6 @@ package monitor
 import (
 	"context"
 	"fmt"
-	"go.uber.org/zap"
 )
 
 // type methodParams interface{}
@@ -15,88 +14,11 @@ type methodExecutor interface {
 }
 
 const (
-	methodSubscribe   string = "subscribe"
-	methodUnsubscribe string = "unsubscribe"
+	methodSubscribe        string = "subscribe"
+	methodUnsubscribe      string = "unsubscribe"
+	methodBatchSubscribe   string = "batchSubscribe"
+	methodBatchUnsubscribe string = "batchUnsubscribe"
 )
-
-type methodSubscribeParams struct {
-	Topic string `json:"topic"`
-	// Count  int    `json:"count"`
-	Offset uint64 `json:"offset"`
-}
-
-func (p *methodSubscribeParams) isValid() bool {
-	return p.Topic != ""
-}
-
-func (p *methodSubscribeParams) execute(_ context.Context, session *Session) (methodResult, error) {
-	methodLog.Debug("> subscribe",
-		zap.String("topic", p.Topic),
-		zap.Uint64("offset", p.Offset),
-		// zap.Int("count", p.Count),
-		zap.String("session.id", session.ID))
-
-	message := &ScraperSubscribeMessage{
-		name:     p.Topic,
-		session:  session,
-		response: make(chan *ScraperResponseMessage),
-	}
-
-	session.setOffset(p.Offset)
-	scraper.subscribe <- message
-	response := <-message.response
-	return response.result, response.err
-}
-
-// execute from readPump
-func (p *methodSubscribeParams) after(ctx context.Context, session *Session) {
-	err := session.sendEventsFromDatabase(ctx, p.Topic, p.Offset) // this block operation
-	if err != nil {
-		sessionLog.Error("sendEvents error", zap.Error(err), zap.String("session.ID", session.ID))
-		return
-	}
-
-	sessionLog.Debug("sendEvents done", zap.Uint64("session.offset", session.Offset()), zap.String("session.ID", session.ID))
-
-	err = session.sendQueueMessages(ctx)
-	if err != nil {
-		sessionLog.Error("sendQueueMessages error", zap.Error(err), zap.String("session.ID", session.ID))
-		return
-	}
-
-	sessionLog.Debug("sendQueueMessages done, open queueMessages",
-		zap.Int("queue len", len(session.queueMessages.events)),
-		zap.Uint64("session.offset", session.Offset()),
-		zap.String("session.ID", session.ID),
-	)
-}
-
-type methodUnsubscribeParams struct {
-	Topic string `json:"topic"`
-}
-
-func (p *methodUnsubscribeParams) isValid() bool {
-	return p.Topic != ""
-}
-
-func (p *methodUnsubscribeParams) execute(_ context.Context, session *Session) (methodResult, error) {
-	methodLog.Debug("> unsubscribe", zap.String("topic", p.Topic), zap.String("session.id", session.ID))
-
-	message := &ScraperUnsubscribeMessage{
-		name:     p.Topic,
-		session:  session,
-		response: make(chan *ScraperResponseMessage),
-	}
-
-	scraper.unsubscribe <- message
-	response := <-message.response
-
-	return response.result, response.err
-}
-
-func (p *methodUnsubscribeParams) after(_ context.Context, _ *Session) {
-	methodLog.Debug("after unsubscribe")
-}
 
 func methodExecutorFactory(method string) (methodExecutor, error) {
 	var params methodExecutor
@@ -105,6 +27,10 @@ func methodExecutorFactory(method string) (methodExecutor, error) {
 		params = new(methodSubscribeParams)
 	case methodUnsubscribe:
 		params = new(methodUnsubscribeParams)
+	case methodBatchSubscribe:
+		params = new(methodBatchSubscribeParams)
+	case methodBatchUnsubscribe:
+		params = new(methodBatchUnsubscribeParams)
 	default:
 		return nil, fmt.Errorf("method not found")
 	}

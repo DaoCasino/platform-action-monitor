@@ -8,6 +8,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// TODO: need remove and replace to sendBatchEventsFromDatabase
 // call from readPump it is blocked function
 func (s *Session) sendEventsFromDatabase(parentContext context.Context, topic string, offset uint64) error {
 	sessionLog.Debug("after subscribe send events", zap.String("session.id", s.ID), zap.Uint64("offset", offset))
@@ -44,6 +45,60 @@ func (s *Session) sendEventsFromDatabase(parentContext context.Context, topic st
 
 	sessionLog.Debug("filterEventsByEventType",
 		zap.Int("eventType", eventType),
+		zap.Int("filteredEvents.len", len(filteredEvents)),
+		zap.String("session.id", s.ID))
+
+	if len(filteredEvents) == 0 {
+		return nil
+	}
+
+	err = s.sendChunked(parentContext, filteredEvents) // blocked !
+	if err != nil {
+		return fmt.Errorf("sendChunked error: %s", err)
+	}
+
+	return nil
+}
+
+// call from readPump it is blocked function
+func (s *Session) sendBatchEventsFromDatabase(parentContext context.Context, topics []string, offset uint64) error {
+	sessionLog.Debug("after subscribe send events", zap.String("session.id", s.ID), zap.Uint64("offset", offset))
+
+	eventTypes := make([]int, len(topics))
+	for i, topic := range topics {
+		eventType, err := getEventTypeFromTopic(topic)
+		if err != nil {
+			return fmt.Errorf("get event type error: %s", err)
+		}
+		eventTypes[i] = eventType
+	}
+
+	conn, err := pool.Acquire(parentContext)
+	if err != nil {
+		return fmt.Errorf("pool acquire connection error: %s", err)
+	}
+
+	defer func() {
+		conn.Release()
+	}()
+
+	events, err := fetchAllEvents(parentContext, conn.Conn(), offset, 0) // TODO: may be need count
+	if err != nil {
+		return fmt.Errorf("fetch all events error: %s", err)
+	}
+
+	sessionLog.Debug("fetchAllEvents",
+		zap.Uint64("offset", offset),
+		zap.Int("events.len", len(events)),
+		zap.String("session.id", s.ID))
+
+	if len(events) == 0 {
+		return nil
+	}
+	filteredEvents := filterEventsByEventTypes(events, eventTypes)
+
+	sessionLog.Debug("filterEventsByEventTypes",
+		zap.Ints("eventTypes", eventTypes),
 		zap.Int("filteredEvents.len", len(filteredEvents)),
 		zap.String("session.id", s.ID))
 
