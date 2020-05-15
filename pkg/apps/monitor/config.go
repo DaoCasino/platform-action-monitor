@@ -1,6 +1,7 @@
 package monitor
 
 import (
+	"github.com/kelseyhightower/envconfig"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 	"io"
@@ -9,6 +10,11 @@ import (
 )
 
 const (
+	// Prefix for environment variables.
+	// Environment variables override config file fields, eg:
+	// PREFIX_SERVER_ADDR = ConfigFile.Server.Addr
+	envPrefix = "monitor"
+
 	// TCP network address
 	defaultAddr = ":8888"
 
@@ -193,6 +199,11 @@ func (c *Config) loadFromFile(filename *string) error {
 	var configFile *ConfigFile
 	configFile, err = newConfigFile(f)
 
+	if err != nil {
+		return err
+	}
+
+	err = envconfig.Process(envPrefix, configFile)
 	if err != nil {
 		return err
 	}
