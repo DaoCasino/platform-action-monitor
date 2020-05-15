@@ -128,6 +128,19 @@ func filterEventsByEventType(events []*Event, eventType int) []*Event {
 	return result
 }
 
+func filterEventsByEventTypes(events []*Event, eventTypes []int) []*Event {
+	result := events[:0]
+	for _, event := range events {
+		event := event
+		for _, eventType := range eventTypes {
+			if event.EventType == eventType {
+				result = append(result, event)
+			}
+		}
+	}
+	return result
+}
+
 func filterEventsFromOffset(events []*Event, offset uint64) []*Event {
 	for index, event := range events {
 		event := event
