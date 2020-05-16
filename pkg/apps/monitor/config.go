@@ -203,11 +203,6 @@ func (c *Config) loadFromFile(filename *string) error {
 		return err
 	}
 
-	err = envconfig.Process(envPrefix, configFile)
-	if err != nil {
-		return err
-	}
-
 	return c.assign(configFile)
 }
 
@@ -215,6 +210,11 @@ func newConfigFile(reader io.Reader) (*ConfigFile, error) {
 	config := new(ConfigFile)
 	decoder := yaml.NewDecoder(reader)
 	err := decoder.Decode(config)
+
+	if err == nil {
+		err = envconfig.Process(envPrefix, config)
+	}
+
 	return config, err
 }
 
