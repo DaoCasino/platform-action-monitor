@@ -58,6 +58,45 @@ func TestConfigFile(t *testing.T) {
 	assert.Equal(t, "1 day", configFile.EventExpires)
 }
 
+func TestConfigAssign(t *testing.T) {
+	config := newConfig()
+
+	reader := strings.NewReader(testConfigFile)
+	configFile, err := newConfigFile(reader)
+	require.NoError(t, err)
+
+	err = config.assign(configFile)
+	require.NoError(t, err)
+
+	assert.Equal(t, "postgres://test:test@localhost/testCase", config.db.url)
+	assert.Equal(t, "testName", *config.db.filter.actName)
+	assert.Equal(t, "testAccount", *config.db.filter.actAccount)
+
+	assert.Equal(t, ":31337", config.serverAddress)
+
+	assert.Equal(t, 100*time.Second, config.session.writeWait)
+	assert.Equal(t, 600*time.Second, config.session.pongWait)
+	assert.Equal(t, 75, config.session.maxEventsInMessage)
+
+	assert.Equal(t, 1024, config.upgrader.readBufferSize)
+	assert.Equal(t, 512, config.upgrader.writeBufferSize)
+
+	assert.Equal(t, 2, len(config.abi.events))
+	assert.Equal(t, "event_0.abi", config.abi.events[0])
+	assert.Equal(t, "contract_test.abi", config.abi.main)
+
+	assert.Equal(t, "1 day", config.eventExpires)
+
+	configFile.Database.Filter.Name = ""
+	configFile.Database.Filter.Account = ""
+
+	err = config.assign(configFile)
+	require.NoError(t, err)
+
+	assert.Nil(t, config.db.filter.actName)
+	assert.Nil(t, config.db.filter.actAccount)
+}
+
 func TestConfigEnv(t *testing.T) {
 	reader := strings.NewReader(testConfigFile)
 
@@ -104,43 +143,4 @@ func TestConfigEnv(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, e, configFile)
-}
-
-func TestConfigAssign(t *testing.T) {
-	config := newConfig()
-
-	reader := strings.NewReader(testConfigFile)
-	configFile, err := newConfigFile(reader)
-	require.NoError(t, err)
-
-	err = config.assign(configFile)
-	require.NoError(t, err)
-
-	assert.Equal(t, "postgres://test:test@localhost/testCase", config.db.url)
-	assert.Equal(t, "testName", *config.db.filter.actName)
-	assert.Equal(t, "testAccount", *config.db.filter.actAccount)
-
-	assert.Equal(t, ":31337", config.serverAddress)
-
-	assert.Equal(t, 100*time.Second, config.session.writeWait)
-	assert.Equal(t, 600*time.Second, config.session.pongWait)
-	assert.Equal(t, 75, config.session.maxEventsInMessage)
-
-	assert.Equal(t, 1024, config.upgrader.readBufferSize)
-	assert.Equal(t, 512, config.upgrader.writeBufferSize)
-
-	assert.Equal(t, 2, len(config.abi.events))
-	assert.Equal(t, "event_0.abi", config.abi.events[0])
-	assert.Equal(t, "contract_test.abi", config.abi.main)
-
-	assert.Equal(t, "1 day", config.eventExpires)
-
-	configFile.Database.Filter.Name = ""
-	configFile.Database.Filter.Account = ""
-
-	err = config.assign(configFile)
-	require.NoError(t, err)
-
-	assert.Nil(t, config.db.filter.actName)
-	assert.Nil(t, config.db.filter.actAccount)
 }
