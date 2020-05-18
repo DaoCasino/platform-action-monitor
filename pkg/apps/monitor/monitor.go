@@ -49,6 +49,10 @@ func Init(configFile *string, parentContext context.Context) (*http.Server, func
 		serveWs(parentContext, scraper, w, r)
 	})
 
+	router.HandleFunc("/ping", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(200)
+	})
+
 	metrics.Handle(router)
 
 	srv := &http.Server{

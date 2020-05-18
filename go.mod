@@ -9,6 +9,7 @@ require (
 	github.com/jackc/pgconn v1.4.0
 	github.com/jackc/pgproto3/v2 v2.0.1
 	github.com/jackc/pgx/v4 v4.5.0
+	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/lucsky/cuid v1.0.2
 	github.com/prometheus/client_golang v0.9.1
 	github.com/stretchr/testify v1.5.1
