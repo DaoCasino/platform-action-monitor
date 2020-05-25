@@ -1,12 +1,15 @@
 -- migrate:up
 CREATE SCHEMA monitor;
 
-CREATE TABLE monitor.users (
-  id serial primary key,
-  token character varying(64) not null,
-  description text,
-  creation_date timestamp without time zone
+CREATE TABLE monitor.users
+(
+    id            serial primary key,
+    token         character varying(64) not null,
+    description   text,
+    creation_date timestamp without time zone
 );
+
+CREATE INDEX users_index_token ON monitor.users USING btree (token, id);
 
 CREATE ROLE shared_anon nologin;
 
@@ -37,5 +40,6 @@ REVOKE SELECT ON monitor.users FROM shared_anon;
 REVOKE USAGE ON SCHEMA monitor FROM shared_anon;
 DROP ROLE shared_anon;
 
+DROP INDEX users_index_token;
 DROP TABLE monitor.users;
 DROP SCHEMA monitor;

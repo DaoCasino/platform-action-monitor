@@ -6,21 +6,25 @@ import (
 )
 
 type methodSubscribeParams struct {
-	Topic string `json:"topic"`
-	// Count  int    `json:"count"`
+	Token  string `json:"token"`
+	Topic  string `json:"topic"`
 	Offset uint64 `json:"offset"`
 }
 
 func (p *methodSubscribeParams) isValid() bool {
-	return p.Topic != ""
+	return p.Topic != "" && p.Token != ""
 }
 
-func (p *methodSubscribeParams) execute(_ context.Context, session *Session) (methodResult, error) {
+func (p *methodSubscribeParams) execute(ctx context.Context, session *Session) (methodResult, error) {
 	methodLog.Debug("> subscribe",
+		zap.String("token", p.Token),
 		zap.String("topic", p.Topic),
 		zap.Uint64("offset", p.Offset),
-		// zap.Int("count", p.Count),
 		zap.String("session.id", session.ID))
+
+	if err := checkToken(ctx, p.Token); err != nil {
+		return nil, err
+	}
 
 	message := &ScraperSubscribeMessage{
 		name:     p.Topic,
@@ -38,19 +42,19 @@ func (p *methodSubscribeParams) execute(_ context.Context, session *Session) (me
 func (p *methodSubscribeParams) after(ctx context.Context, session *Session) {
 	err := session.sendEventsFromDatabase(ctx, p.Topic, p.Offset) // this block operation
 	if err != nil {
-		sessionLog.Error("sendEvents error", zap.Error(err), zap.String("session.ID", session.ID))
+		methodLog.Error("sendEvents error", zap.Error(err), zap.String("session.ID", session.ID))
 		return
 	}
 
-	sessionLog.Debug("sendEvents done", zap.Uint64("session.offset", session.Offset()), zap.String("session.ID", session.ID))
+	methodLog.Debug("sendEvents done", zap.Uint64("session.offset", session.Offset()), zap.String("session.ID", session.ID))
 
 	err = session.sendQueueMessages(ctx)
 	if err != nil {
-		sessionLog.Error("sendQueueMessages error", zap.Error(err), zap.String("session.ID", session.ID))
+		methodLog.Error("sendQueueMessages error", zap.Error(err), zap.String("session.ID", session.ID))
 		return
 	}
 
-	sessionLog.Debug("sendQueueMessages done, open queueMessages",
+	methodLog.Debug("sendQueueMessages done, open queueMessages",
 		zap.Int("queue len", len(session.queueMessages.events)),
 		zap.Uint64("session.offset", session.Offset()),
 		zap.String("session.ID", session.ID),

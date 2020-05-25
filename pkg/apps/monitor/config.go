@@ -97,6 +97,7 @@ type Config struct {
 	abi            AbiConfig
 	eventExpires   string
 	sharedDatabase string
+	skipTokenCheck bool
 }
 
 type ConfigFile struct {
@@ -141,6 +142,7 @@ func newDefaultConfig() *Config {
 		abi:            AbiConfig{main: defaultContractABI, events: make(map[int]string)},
 		eventExpires:   defaultEventExpires,
 		sharedDatabase: defaultDatabaseUrl,
+		skipTokenCheck: false,
 	}
 
 	config.abi.events[0] = defaultEventABI
