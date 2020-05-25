@@ -33,14 +33,14 @@ func checkToken(parentContext context.Context, token string) error {
 		return fmt.Errorf("shared pool acquire connection error: %s", err)
 	}
 
+	defer func() {
+		conn.Release()
+	}()
+
 	_, err = conn.Exec(parentContext, fmt.Sprintf("SET ROLE %s", config.sharedDatabase.role))
 	if err != nil {
 		return fmt.Errorf("shared set role error: %s", err)
 	}
-
-	defer func() {
-		conn.Release()
-	}()
 
 	var ok bool
 	ok, err = isUserExists(parentContext, conn, token)
