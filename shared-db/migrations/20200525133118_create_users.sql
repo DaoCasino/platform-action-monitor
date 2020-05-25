@@ -40,6 +40,6 @@ REVOKE SELECT ON monitor.users FROM shared_anon;
 REVOKE USAGE ON SCHEMA monitor FROM shared_anon;
 DROP ROLE shared_anon;
 
-DROP INDEX users_index_token;
+DROP INDEX monitor.users_index_token;
 DROP TABLE monitor.users;
 DROP SCHEMA monitor;
