@@ -31,6 +31,7 @@ abi:
     0: event_0.abi
     1: event_1.abi
 eventExpires: 1 day
+sharedDatabase: postgres://test:test@localhost/testCase
 `
 
 func TestConfigFile(t *testing.T) {
@@ -56,6 +57,7 @@ func TestConfigFile(t *testing.T) {
 	assert.Equal(t, "contract_test.abi", configFile.Abi.Main)
 
 	assert.Equal(t, "1 day", configFile.EventExpires)
+	assert.Equal(t, "postgres://test:test@localhost/testCase", configFile.SharedDatabase)
 }
 
 func TestConfigAssign(t *testing.T) {
@@ -86,6 +88,7 @@ func TestConfigAssign(t *testing.T) {
 	assert.Equal(t, "contract_test.abi", config.abi.main)
 
 	assert.Equal(t, "1 day", config.eventExpires)
+	assert.Equal(t, "postgres://test:test@localhost/testCase", config.sharedDatabase)
 
 	configFile.Database.Filter.Name = ""
 	configFile.Database.Filter.Account = ""
@@ -138,6 +141,9 @@ func TestConfigEnv(t *testing.T) {
 	e.EventExpires = "2 day"
 
 	os.Setenv("MONITOR_EVENTEXPIRES", e.EventExpires)
+
+	e.SharedDatabase = "sharedDatabaseUrlTest"
+	os.Setenv("MONITOR_SHAREDDATABASE", e.SharedDatabase)
 
 	configFile, err := newConfigFile(reader)
 	require.NoError(t, err)

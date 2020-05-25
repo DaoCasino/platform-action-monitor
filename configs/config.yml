@@ -18,3 +18,4 @@ abi:
     0: /app/abi/event.abi
     1: /app/abi/event.abi
 eventExpires: 1 hour
+sharedDatabase: postgres://test:test@localhost/monitor
