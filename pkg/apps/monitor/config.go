@@ -56,6 +56,8 @@ const (
 	//   postgres://jack:secret@pg.example.com:5432/mydb?sslmode=verify-ca&pool_max_conns=10
 	defaultDatabaseUrl = "postgres://test:test@localhost/test"
 
+	defaultSharedRole = "shared_anon"
+
 	// Life time event, use in fetchAllEvents SQL query block.timestamp > now() - interval '1 day'
 	defaultEventExpires = "1 hour"
 )
@@ -89,6 +91,11 @@ type DatabaseConfig struct {
 	filter DatabaseFilters
 }
 
+type SharedDatabaseConfig struct {
+	url  string
+	role string
+}
+
 type Config struct {
 	db             DatabaseConfig
 	serverAddress  string
@@ -96,7 +103,7 @@ type Config struct {
 	upgrader       UpgraderConfig
 	abi            AbiConfig
 	eventExpires   string
-	sharedDatabase string
+	sharedDatabase SharedDatabaseConfig
 	skipTokenCheck bool
 }
 
@@ -130,7 +137,10 @@ type ConfigFile struct {
 	} `yaml:"abi"`
 
 	EventExpires   string `yaml:"eventExpires"`
-	SharedDatabase string `yaml:"sharedDatabase"`
+	SharedDatabase struct {
+		Url  string `yaml:"url"`
+		Role string `yaml:"role"`
+	} `yaml:"sharedDatabase"`
 }
 
 func newDefaultConfig() *Config {
@@ -141,7 +151,7 @@ func newDefaultConfig() *Config {
 		upgrader:       UpgraderConfig{defaultReadBufferSize, defaultWriteBufferSize},
 		abi:            AbiConfig{main: defaultContractABI, events: make(map[int]string)},
 		eventExpires:   defaultEventExpires,
-		sharedDatabase: defaultDatabaseUrl,
+		sharedDatabase: SharedDatabaseConfig{defaultDatabaseUrl, defaultSharedRole},
 		skipTokenCheck: false,
 	}
 
@@ -188,7 +198,8 @@ func (c *Config) assign(target *ConfigFile) (err error) {
 		c.eventExpires = target.EventExpires
 	}
 
-	c.sharedDatabase = target.SharedDatabase
+	c.sharedDatabase.url = target.SharedDatabase.Url
+	c.sharedDatabase.role = target.SharedDatabase.Role
 	return
 }
 

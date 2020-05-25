@@ -42,7 +42,7 @@ func Init(configFile *string, parentContext context.Context) (*http.Server, func
 		return nil, nil, fmt.Errorf("database connection error: %s", err.Error())
 	}
 
-	sharedPool, err = pgxpool.Connect(parentContext, config.sharedDatabase)
+	sharedPool, err = pgxpool.Connect(parentContext, config.sharedDatabase.url)
 	if err != nil {
 		return nil, nil, fmt.Errorf("shared database connection error: %s", err.Error())
 	}
