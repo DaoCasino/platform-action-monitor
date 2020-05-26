@@ -4,27 +4,23 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/jackc/pgx/v4"
 )
 
 var errUserNotExists = errors.New("user not exist")
 
 func isUserExists(ctx context.Context, db DatabaseConnect, token string) (bool, error) {
-	id := 0
-	err := db.QueryRow(ctx, "SELECT id FROM monitor.users WHERE token=$1 LIMIT 1", token).Scan(&id)
+	cnt := 0
+	err := db.QueryRow(ctx, "SELECT count(token) FROM monitor.users WHERE token = $1", token).Scan(&cnt)
 
-	switch err {
-	case nil:
-		return true, nil
-	case pgx.ErrNoRows:
-		return false, nil
+	if err != nil {
+		return false, err
 	}
 
-	return false, err
+	return !(cnt == 0), nil
 }
 
 func checkToken(parentContext context.Context, token string) error {
-	if config.skipTokenCheck { // fot unit-test
+	if config.skipTokenCheck { // for unit testing
 		return nil
 	}
 
