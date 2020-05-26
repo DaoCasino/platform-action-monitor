@@ -33,7 +33,6 @@ abi:
 eventExpires: 1 day
 sharedDatabase: 
   url: postgres://test:test@localhost/testCase
-  role: testRole
 `
 
 func TestConfigFile(t *testing.T) {
@@ -61,7 +60,6 @@ func TestConfigFile(t *testing.T) {
 	assert.Equal(t, "1 day", configFile.EventExpires)
 
 	assert.Equal(t, "postgres://test:test@localhost/testCase", configFile.SharedDatabase.Url)
-	assert.Equal(t, "testRole", configFile.SharedDatabase.Role)
 }
 
 func TestConfigAssign(t *testing.T) {
@@ -94,7 +92,6 @@ func TestConfigAssign(t *testing.T) {
 	assert.Equal(t, "1 day", config.eventExpires)
 
 	assert.Equal(t, "postgres://test:test@localhost/testCase", config.sharedDatabase.url)
-	assert.Equal(t, "testRole", config.sharedDatabase.role)
 
 	configFile.Database.Filter.Name = ""
 	configFile.Database.Filter.Account = ""
@@ -149,9 +146,7 @@ func TestConfigEnv(t *testing.T) {
 	os.Setenv("MONITOR_EVENTEXPIRES", e.EventExpires)
 
 	e.SharedDatabase.Url = "sharedDatabaseUrlTest"
-	e.SharedDatabase.Role = "sharedDatabaseTestRole"
 	os.Setenv("MONITOR_SHAREDDATABASE_URL", e.SharedDatabase.Url)
-	os.Setenv("MONITOR_SHAREDDATABASE_ROLE", e.SharedDatabase.Role)
 
 	configFile, err := newConfigFile(reader)
 	require.NoError(t, err)

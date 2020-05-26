@@ -20,4 +20,3 @@ abi:
 eventExpires: 1 hour
 sharedDatabase:
   url: postgres://test:test@localhost/monitor
-  role: anon

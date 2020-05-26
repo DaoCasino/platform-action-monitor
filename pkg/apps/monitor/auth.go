@@ -37,11 +37,6 @@ func checkToken(parentContext context.Context, token string) error {
 		conn.Release()
 	}()
 
-	_, err = conn.Exec(parentContext, fmt.Sprintf("SET ROLE %s", config.sharedDatabase.role))
-	if err != nil {
-		return fmt.Errorf("shared set role error: %s", err)
-	}
-
 	var ok bool
 	ok, err = isUserExists(parentContext, conn, token)
 	if err != nil {
