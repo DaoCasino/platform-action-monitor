@@ -14,6 +14,7 @@ var (
 	config         *Config
 	abiDecoder     *AbiDecoder
 	pool           *pgxpool.Pool
+	sharedPool     *pgxpool.Pool
 	scraper        *Scraper
 	sessionManager *SessionManager
 )
@@ -41,6 +42,11 @@ func Init(configFile *string, parentContext context.Context) (*http.Server, func
 		return nil, nil, fmt.Errorf("database connection error: %s", err.Error())
 	}
 
+	sharedPool, err = pgxpool.Connect(parentContext, config.sharedDatabase.url)
+	if err != nil {
+		return nil, nil, fmt.Errorf("shared database connection error: %s", err.Error())
+	}
+
 	scraper = newScraper()
 	sessionManager = newSessionManager()
 
@@ -65,6 +71,7 @@ func Init(configFile *string, parentContext context.Context) (*http.Server, func
 
 	closeFunc := func() {
 		pool.Close()
+		sharedPool.Close()
 	}
 
 	return srv, closeFunc, nil

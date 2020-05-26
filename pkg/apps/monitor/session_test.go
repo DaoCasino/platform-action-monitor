@@ -16,6 +16,8 @@ func setupSessionTestCase(t *testing.T) (*Session, func(t *testing.T)) {
 	var err error
 
 	config = newConfig()
+	config.skipTokenCheck = true
+
 	scraper = newScraper()
 	sessionManager = newSessionManager()
 
@@ -65,7 +67,7 @@ func TestSessionProcess(t *testing.T) {
 		},
 		{
 			"subscribe test",
-			`{"id":"4","method":"subscribe","params":{"topic":"test","offset":1}}`,
+			`{"id":"4","method":"subscribe","params":{"token":"123","topic":"test","offset":1}}`,
 			`{"id":"4","result":true,"error":null}`,
 		},
 		{
@@ -86,6 +88,31 @@ func TestSessionProcess(t *testing.T) {
 		{
 			"unsubscribe invalid params",
 			`{"id":"8","method":"unsubscribe","params":{"topic":""}}`,
+			`{"id":"8","result":null,"error":{"code":-32602,"message":"invalid params"}}`,
+		},
+		{
+			"batch subscribe test",
+			`{"id":"4","method":"batchSubscribe","params":{"token":"123","topics":["test"],"offset":1}}`,
+			`{"id":"4","result":true,"error":null}`,
+		},
+		{
+			"batch subscribe test invalid params",
+			`{"id":"7","method":"batchSubscribe","params":{"topic":""}}`,
+			`{"id":"7","result":null,"error":{"code":-32602,"message":"invalid params"}}`,
+		},
+		{
+			"batch unsubscribe test",
+			`{"id":"5","method":"batchUnsubscribe","params":{"topics":["test"]}}`,
+			`{"id":"5","result":true,"error":null}`,
+		},
+		{
+			"batch unsubscribe error",
+			`{"id":"6","method":"batchUnsubscribe","params":{"topics":["sdfsdf"]}}`,
+			`{"id":"6","result":null,"error":{"code":0,"message":"topic sdfsdf not exist"}}`,
+		},
+		{
+			"batch unsubscribe invalid params",
+			`{"id":"8","method":"batchUnsubscribe","params":{"topics":[]}}`,
 			`{"id":"8","result":null,"error":{"code":-32602,"message":"invalid params"}}`,
 		},
 	}

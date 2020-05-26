@@ -89,13 +89,19 @@ type DatabaseConfig struct {
 	filter DatabaseFilters
 }
 
+type SharedDatabaseConfig struct {
+	url string
+}
+
 type Config struct {
-	db            DatabaseConfig
-	serverAddress string
-	session       SessionConfig
-	upgrader      UpgraderConfig
-	abi           AbiConfig
-	eventExpires  string
+	db             DatabaseConfig
+	serverAddress  string
+	session        SessionConfig
+	upgrader       UpgraderConfig
+	abi            AbiConfig
+	eventExpires   string
+	sharedDatabase SharedDatabaseConfig
+	skipTokenCheck bool
 }
 
 type ConfigFile struct {
@@ -127,17 +133,22 @@ type ConfigFile struct {
 		Events map[int]string `yaml:"events"`
 	} `yaml:"abi"`
 
-	EventExpires string `yaml:"eventExpires"`
+	EventExpires   string `yaml:"eventExpires"`
+	SharedDatabase struct {
+		Url string `yaml:"url"`
+	} `yaml:"sharedDatabase"`
 }
 
 func newDefaultConfig() *Config {
 	config := &Config{
-		db:            DatabaseConfig{defaultDatabaseUrl, DatabaseFilters{nil, nil}},
-		serverAddress: defaultAddr,
-		session:       SessionConfig{defaultWriteWait, defaultPongWait, defaultPingPeriod, defaultMessageSizeLimit, defaultMaxEventsInMessage},
-		upgrader:      UpgraderConfig{defaultReadBufferSize, defaultWriteBufferSize},
-		abi:           AbiConfig{main: defaultContractABI, events: make(map[int]string)},
-		eventExpires:  defaultEventExpires,
+		db:             DatabaseConfig{defaultDatabaseUrl, DatabaseFilters{nil, nil}},
+		serverAddress:  defaultAddr,
+		session:        SessionConfig{defaultWriteWait, defaultPongWait, defaultPingPeriod, defaultMessageSizeLimit, defaultMaxEventsInMessage},
+		upgrader:       UpgraderConfig{defaultReadBufferSize, defaultWriteBufferSize},
+		abi:            AbiConfig{main: defaultContractABI, events: make(map[int]string)},
+		eventExpires:   defaultEventExpires,
+		sharedDatabase: SharedDatabaseConfig{defaultDatabaseUrl},
+		skipTokenCheck: false,
 	}
 
 	config.abi.events[0] = defaultEventABI
@@ -182,6 +193,8 @@ func (c *Config) assign(target *ConfigFile) (err error) {
 	if target.EventExpires != "" {
 		c.eventExpires = target.EventExpires
 	}
+
+	c.sharedDatabase.url = target.SharedDatabase.Url
 	return
 }
 
