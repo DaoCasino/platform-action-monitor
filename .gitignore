@@ -1,5 +1,6 @@
 environment/history-tools/
 environment/database/
+environment/shared-database/
 protocol_features/
 nodeos.log
 .idea/

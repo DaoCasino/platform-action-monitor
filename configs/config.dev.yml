@@ -23,3 +23,5 @@ abi:
     5: configs/abi/event.abi
     6: configs/abi/event.abi
 eventExpires: 3 hour
+sharedDatabase:
+  url: postgres://test:test@localhost:5434/test
