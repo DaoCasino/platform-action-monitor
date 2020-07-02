@@ -1,0 +1,21 @@
+{
+    "____comment": "This file was generated with eosio-abigen. DO NOT EDIT",
+    "version": "eosio::abi/1.1",
+    "structs": [
+        {
+            "name": "event_data",
+            "base": "",
+            "fields": [
+                {
+                    "name": "digest",
+                    "type": "checksum256"
+                }
+            ]
+        }
+    ],
+    "types": [],
+    "actions": [],
+    "tables": [],
+    "ricardian_clauses": [],
+    "variants": []
+}

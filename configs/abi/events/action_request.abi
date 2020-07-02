@@ -1,0 +1,25 @@
+{
+    "____comment": "This file was generated with eosio-abigen. DO NOT EDIT",
+    "version": "eosio::abi/1.1",
+    "structs": [
+        {
+            "name": "event_data",
+            "base": "",
+            "fields": [
+                {
+                    "name": "action_type",
+                    "type": "uint8"
+                },
+                {
+                    "name": "need_deposit",
+                    "type": "bool"
+                }
+            ]
+        }
+    ],
+    "types": [],
+    "actions": [],
+    "tables": [],
+    "ricardian_clauses": [],
+    "variants": []
+}
