@@ -15,8 +15,13 @@ upgrader:
 abi:
   main: /app/abi/contract.abi
   events:
-    0: /app/abi/event.abi
-    1: /app/abi/event.abi
+    0: /app/abi/events/game_started.abi
+    1: /app/abi/events/action_request.abi
+    2: /app/abi/events/signidice_part_1_request.abi
+    3: /app/abi/events/signidice_part_2_request.abi
+    4: /app/abi/events/game_finished.abi
+    5: /app/abi/events/game_failed.abi
+    6: /app/abi/events/game_message.abi
 eventExpires: 1 hour
 sharedDatabase:
   url: postgres://test:test@localhost/monitor
