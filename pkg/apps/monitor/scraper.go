@@ -3,10 +3,12 @@ package monitor
 import (
 	"context"
 	"fmt"
-	"github.com/jackc/pgx/v4"
-	"go.uber.org/zap"
 	"strconv"
 	"time"
+
+	"github.com/DaoCasino/platform-action-monitor/pkg/apps/monitor/metrics"
+	"github.com/jackc/pgx/v4"
+	"go.uber.org/zap"
 )
 
 type ScraperSubscribeMessage struct {
@@ -72,6 +74,7 @@ func (s *Scraper) run(parentContext context.Context) {
 
 		case session := <-s.unsubscribeSession:
 			log.Debug("unsubscribeSession", zap.String("session.ID", session.ID))
+			metrics.SessionsAmount.Dec()
 			for name, topicSessions := range s.topics {
 				delete(topicSessions, session)
 
@@ -85,7 +88,7 @@ func (s *Scraper) run(parentContext context.Context) {
 				zap.String("name", message.name),
 				zap.String("session.id", message.session.ID),
 			)
-
+			metrics.SessionsAmount.Inc()
 			if topicClients, ok := s.topics[message.name]; ok {
 				topicClients[message.session] = true
 			} else {
@@ -106,7 +109,7 @@ func (s *Scraper) run(parentContext context.Context) {
 				zap.String("name", message.name),
 				zap.String("session.id", message.session.ID),
 			)
-
+			metrics.SessionsAmount.Dec()
 			response := new(ScraperResponseMessage)
 
 			if topicClients, ok := s.topics[message.name]; ok {
@@ -150,7 +153,10 @@ func (s *Scraper) run(parentContext context.Context) {
 
 func (s *Scraper) handleNotify(parentContext context.Context, conn *pgx.Conn, offset uint64) error {
 	scraperLog.Debug("handleNotify", zap.Uint64("offset", offset))
-
+	start := time.Now()
+	defer func() {
+		metrics.NotifyProcessingTimeMs.Observe(time.Since(start).Seconds() * 1000)
+	}()
 	s.offset = offset // save current offset
 	event, err := fetchEvent(parentContext, conn, offset)
 
