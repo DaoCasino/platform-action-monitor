@@ -17,11 +17,6 @@ var (
 			Name: "users_online",
 		})
 
-	ConnectionPoolSize = prometheus.NewGauge(
-		prometheus.GaugeOpts{
-			Name: "db_connection_pool_size",
-		})
-
 	SessionsAmount = prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Name: "sessions_amount",
@@ -43,7 +38,6 @@ var (
 func init() {
 	prometheus.MustRegister(EventsTotal)
 	prometheus.MustRegister(UsersOnline)
-	prometheus.MustRegister(ConnectionPoolSize)
 	prometheus.MustRegister(SessionsAmount)
 	prometheus.MustRegister(EventDataDecodingTimeMs)
 	prometheus.MustRegister(NotifyProcessingTimeMs)
