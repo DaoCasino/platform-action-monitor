@@ -3,10 +3,12 @@ package monitor
 import (
 	"context"
 	"fmt"
+	"net/http"
+
 	"github.com/DaoCasino/platform-action-monitor/pkg/apps/monitor/metrics"
 	"github.com/gorilla/mux"
 	"github.com/jackc/pgx/v4/pgxpool"
-	"net/http"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 // Globals
@@ -58,6 +60,13 @@ func Init(configFile *string, parentContext context.Context) (*http.Server, func
 	router.HandleFunc("/ping", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(200)
 	})
+
+	prometheus.MustRegister(prometheus.NewGaugeFunc(
+		prometheus.GaugeOpts{
+			Name: "total_db_connections",
+		},
+		func() float64 { return float64(pool.Stat().TotalConns()) }),
+	)
 
 	metrics.Handle(router)
 

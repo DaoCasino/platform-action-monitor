@@ -2,9 +2,12 @@ package monitor
 
 import (
 	"fmt"
+	"os"
+	"time"
+
+	"github.com/DaoCasino/platform-action-monitor/pkg/apps/monitor/metrics"
 	"github.com/eoscanada/eos-go"
 	"go.uber.org/zap"
-	"os"
 )
 
 const (
@@ -84,6 +87,10 @@ func (a *AbiDecoder) decodeEvent(data []byte) (*RawEvent, error) {
 }
 
 func (a *AbiDecoder) decodeEventData(event int, data []byte) ([]byte, error) {
+	start := time.Now()
+	defer func() {
+		metrics.EventDataDecodingTimeMs.Observe(time.Since(start).Seconds() * 1000)
+	}()
 	if _, ok := a.events[event]; !ok {
 		return nil, fmt.Errorf("no abi with eventType: %d", event)
 	}
