@@ -3,7 +3,12 @@ The service is responsible for processing events from the blockchain and their d
 ### Stack
 Golang, eos-go, pgx, gorilla/websocket
 ### How it works
-https://daocasino.atlassian.net/wiki/spaces/DPM/pages/262438920/Event+broker
+
+This service is a notification service tasked with delivering events from the blockchain to all DAOplatform operators. It supplies the interface for subscriptions. 
+There are two types of interactions with the AM:
+initial: when connecting the client requests an offset topic starting from which the events are sent. 
+current:  after the finish of the initial stage AM pushes new events for the subscribed topic.
+
 ## How to use
 ### EOS
 ```BASH
